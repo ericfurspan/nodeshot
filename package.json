@@ -1,0 +1,22 @@
+{
+  "name": "nodeshot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "test": "vitest run",
+    "icons": "node scripts/generate-icons.js"
+  },
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vitest": "^2.0.0",
+    "jsdom": "^24.0.0",
+    "pngjs": "^7.0.0"
+  }
+}

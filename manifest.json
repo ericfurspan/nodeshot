@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "NodeShot",
+  "version": "1.0.0",
+  "description": "Capture any DOM element as PNG or PDF.",
+  "action": {
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    },
+    "default_title": "NodeShot"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}
