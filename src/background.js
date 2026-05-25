@@ -8,5 +8,35 @@ chrome.action.onClicked.addListener(async (tab) => {
 })
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // handlers added in subsequent tasks
+  const tabId = sender.tab?.id
+
+  if (message.action === 'pickerCancelled') {
+    chrome.action.setBadgeText({ text: '', tabId })
+    return
+  }
+
+  if (message.action === 'openPreview') {
+    chrome.action.setBadgeText({ text: '', tabId })
+    chrome.tabs.create({
+      url: chrome.runtime.getURL(`preview.html#key=${message.key}`),
+    })
+    return
+  }
+
+  if (message.action === 'captureViewport') {
+    handleCaptureViewport(message, sender)
+    return true
+  }
 })
+
+async function handleCaptureViewport(message, sender) {
+  // implemented in next task
+}
+
+async function blobToDataUrl(blob) {
+  const ab = await blob.arrayBuffer()
+  const bytes = new Uint8Array(ab)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  return `data:image/png;base64,${btoa(binary)}`
+}
