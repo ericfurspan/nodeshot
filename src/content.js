@@ -1,6 +1,8 @@
 // src/content.js
 import html2canvas from 'html2canvas'
 
+let _keyDownHandler = null
+
 if (window.__nodeShotInjected) {
   activatePicker()
 } else {
@@ -119,13 +121,17 @@ function activatePicker() {
   overlay.addEventListener('mousemove', onMouseMove)
   overlay.addEventListener('click', onClick)
   document.addEventListener('keydown', onKeyDown)
+  _keyDownHandler = onKeyDown
 
   function cleanup() {
     document.getElementById('nodeshot-overlay')?.remove()
     document.getElementById('nodeshot-highlight')?.remove()
     document.getElementById('nodeshot-banner')?.remove()
     document.getElementById('nodeshot-spinner')?.remove()
-    document.removeEventListener('keydown', onKeyDown)
+    if (_keyDownHandler) {
+      document.removeEventListener('keydown', _keyDownHandler)
+      _keyDownHandler = null
+    }
   }
 }
 

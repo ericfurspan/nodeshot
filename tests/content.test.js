@@ -46,6 +46,25 @@ describe('content: picker activation', () => {
     await import('../src/content.js')
     expect(document.querySelectorAll('#nodeshot-overlay').length).toBe(1)
   })
+
+  it('removes old keydown listener on re-injection so Escape only fires once', async () => {
+    // First injection already happened in beforeEach
+    // Simulate first Escape (this adds first listener)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    const callsAfterFirst = global.chrome.runtime.sendMessage.mock.calls.length
+
+    // Re-inject: creates new activation with fresh chrome
+    document.body.innerHTML = ''
+    const newChrome = freshChrome()
+    global.chrome = newChrome
+    vi.resetModules()
+    await import('../src/content.js')
+
+    // Now press Escape again — should only send ONE pickerCancelled from the new listener
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(newChrome.runtime.sendMessage).toHaveBeenCalledTimes(1)
+    expect(newChrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'pickerCancelled' })
+  })
 })
 
 describe('content: element detection', () => {
