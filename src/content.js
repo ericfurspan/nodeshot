@@ -1,12 +1,11 @@
 // src/content.js
 import html2canvas from 'html2canvas'
 
-let _keyDownHandler = null
-
-if (window.__nodeShotInjected) {
-  activatePicker()
-} else {
+if (!window.__nodeShotInjected) {
   window.__nodeShotInjected = true
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.action === 'activate') activatePicker()
+  })
   activatePicker()
 }
 
@@ -50,8 +49,7 @@ function activatePicker() {
     fontFamily: 'system-ui, sans-serif',
     textAlign: 'center',
   })
-  banner.textContent =
-    'NodeShot — click to capture, Shift+click for viewport crop, Esc to cancel'
+  banner.textContent = 'NodeShot — click to capture, Esc to cancel'
 
   document.body.appendChild(overlay)
   document.body.appendChild(highlight)
@@ -86,28 +84,17 @@ function activatePicker() {
     e.stopPropagation()
 
     const target = currentTarget
-    const rect = target.getBoundingClientRect()
     const key = crypto.randomUUID()
 
     cleanup()
-
-    if (e.shiftKey) {
-      chrome.runtime.sendMessage({
-        action: 'captureViewport',
-        key,
-        rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
-        devicePixelRatio: window.devicePixelRatio,
-      })
-    } else {
-      showSpinner()
-      try {
-        const canvas = await html2canvas(target, { useCORS: true, logging: false })
-        const dataUrl = canvas.toDataURL('image/png')
-        await chrome.storage.local.set({ [key]: dataUrl })
-        chrome.runtime.sendMessage({ action: 'openPreview', key })
-      } finally {
-        removeSpinner()
-      }
+    showSpinner()
+    try {
+      const canvas = await html2canvas(target, { useCORS: true, logging: false })
+      const dataUrl = canvas.toDataURL('image/png')
+      await chrome.storage.local.set({ [key]: dataUrl })
+      chrome.runtime.sendMessage({ action: 'openPreview', key })
+    } finally {
+      removeSpinner()
     }
   }
 
@@ -121,17 +108,13 @@ function activatePicker() {
   overlay.addEventListener('mousemove', onMouseMove)
   overlay.addEventListener('click', onClick)
   document.addEventListener('keydown', onKeyDown)
-  _keyDownHandler = onKeyDown
 
   function cleanup() {
     document.getElementById('nodeshot-overlay')?.remove()
     document.getElementById('nodeshot-highlight')?.remove()
     document.getElementById('nodeshot-banner')?.remove()
     document.getElementById('nodeshot-spinner')?.remove()
-    if (_keyDownHandler) {
-      document.removeEventListener('keydown', _keyDownHandler)
-      _keyDownHandler = null
-    }
+    document.removeEventListener('keydown', onKeyDown)
   }
 }
 
