@@ -24,13 +24,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'captureViewport') {
-    handleCaptureViewport(message, sender)
-    return true
+    return handleCaptureViewport(message, sender)
   }
 })
 
-async function handleCaptureViewport(message, sender) {
-  // implemented in next task
+async function handleCaptureViewport({ key, rect, devicePixelRatio }, sender) {
+  const dpr = devicePixelRatio || 1
+  const dataUrl = await chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' })
+
+  const blob = await fetch(dataUrl).then((r) => r.blob())
+  const img = await createImageBitmap(blob)
+
+  const cropX = Math.round(rect.left * dpr)
+  const cropY = Math.round(rect.top * dpr)
+  const cropW = Math.round(rect.width * dpr)
+  const cropH = Math.round(rect.height * dpr)
+
+  const canvas = new OffscreenCanvas(cropW, cropH)
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+
+  const cropped = await canvas.convertToBlob({ type: 'image/png' })
+  const croppedDataUrl = await blobToDataUrl(cropped)
+
+  await chrome.storage.local.set({ [key]: croppedDataUrl })
+  chrome.action.setBadgeText({ text: '', tabId: sender.tab.id })
+  chrome.tabs.create({ url: chrome.runtime.getURL(`preview.html#key=${key}`) })
 }
 
 async function blobToDataUrl(blob) {
