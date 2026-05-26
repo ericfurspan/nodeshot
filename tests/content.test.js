@@ -109,3 +109,84 @@ describe('content: Escape cancellation', () => {
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'pickerCancelled' })
   })
 })
+
+describe('content: full-render capture (click)', () => {
+  let mockHtml2canvas
+
+  beforeEach(async () => {
+    document.body.innerHTML = ''
+    delete window.__nodeShotInjected
+    global.chrome = freshChrome()
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-1234')
+
+    vi.resetModules()
+    const h2c = await import('html2canvas')
+    mockHtml2canvas = h2c.default
+
+    await import('../src/content.js')
+  })
+
+  it('stores data URL and sends openPreview on click', async () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+
+    const overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+      { top: 0, left: 0, width: 100, height: 100 },
+    )
+
+    // Hover to set currentTarget
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
+    // Click without shift
+    overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50, shiftKey: false }))
+
+    // Wait for html2canvas promise
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(mockHtml2canvas).toHaveBeenCalledWith(target, expect.objectContaining({ useCORS: true }))
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      'test-uuid-1234': 'data:image/png;base64,fake',
+    })
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      action: 'openPreview',
+      key: 'test-uuid-1234',
+    })
+  })
+})
+
+describe('content: viewport crop (Shift+click)', () => {
+  beforeEach(async () => {
+    document.body.innerHTML = ''
+    delete window.__nodeShotInjected
+    global.chrome = freshChrome()
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-shift')
+    global.devicePixelRatio = 2
+
+    vi.resetModules()
+    await import('../src/content.js')
+  })
+
+  it('sends captureViewport message with rect and devicePixelRatio on Shift+click', async () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+
+    const overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+      { top: 50, left: 100, width: 200, height: 80 },
+    )
+
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 150, clientY: 90 }))
+    overlay.dispatchEvent(new MouseEvent('click', { clientX: 150, clientY: 90, shiftKey: true }))
+
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      action: 'captureViewport',
+      key: 'test-uuid-shift',
+      rect: { top: 50, left: 100, width: 200, height: 80 },
+      devicePixelRatio: 2,
+    })
+  })
+})
