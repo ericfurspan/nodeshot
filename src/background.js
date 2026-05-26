@@ -37,6 +37,9 @@ async function blobToDataUrl(blob) {
   const ab = await blob.arrayBuffer()
   const bytes = new Uint8Array(ab)
   let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  const chunk = 8192
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
   return `data:image/png;base64,${btoa(binary)}`
 }
