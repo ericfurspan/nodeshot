@@ -1,5 +1,10 @@
 import { vi } from 'vitest'
 
+// jsdom does not implement elementsFromPoint — stub it so spyOn can override it
+if (!document.elementsFromPoint) {
+  document.elementsFromPoint = () => []
+}
+
 global.chrome = {
   action: {
     onClicked: { addListener: vi.fn() },

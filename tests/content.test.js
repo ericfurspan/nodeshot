@@ -47,3 +47,65 @@ describe('content: picker activation', () => {
     expect(document.querySelectorAll('#nodeshot-overlay').length).toBe(1)
   })
 })
+
+describe('content: element detection', () => {
+  beforeEach(async () => {
+    document.body.innerHTML = ''
+    delete window.__nodeShotInjected
+    global.chrome = freshChrome()
+    vi.resetModules()
+    await import('../src/content.js')
+  })
+
+  it('updates highlight position on mousemove over a page element', () => {
+    const target = document.createElement('div')
+    target.id = 'page-target'
+    document.body.appendChild(target)
+
+    const overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+      { top: 10, left: 20, width: 150, height: 60 },
+    )
+
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 30 }))
+
+    const highlight = document.getElementById('nodeshot-highlight')
+    expect(highlight.style.display).toBe('block')
+    expect(highlight.style.top).toBe('10px')
+    expect(highlight.style.left).toBe('20px')
+    expect(highlight.style.width).toBe('150px')
+    expect(highlight.style.height).toBe('60px')
+  })
+
+  it('hides highlight when hovering overlay itself', () => {
+    const overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay])
+
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 0, clientY: 0 }))
+
+    expect(document.getElementById('nodeshot-highlight').style.display).toBe('none')
+  })
+})
+
+describe('content: Escape cancellation', () => {
+  beforeEach(async () => {
+    document.body.innerHTML = ''
+    delete window.__nodeShotInjected
+    global.chrome = freshChrome()
+    vi.resetModules()
+    await import('../src/content.js')
+  })
+
+  it('removes all picker elements on Escape', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(document.getElementById('nodeshot-overlay')).toBeNull()
+    expect(document.getElementById('nodeshot-highlight')).toBeNull()
+    expect(document.getElementById('nodeshot-banner')).toBeNull()
+  })
+
+  it('sends pickerCancelled message on Escape', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'pickerCancelled' })
+  })
+})
