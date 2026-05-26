@@ -92,7 +92,14 @@ function activatePicker() {
       const canvas = await html2canvas(target, { useCORS: true, logging: false })
       const dataUrl = canvas.toDataURL('image/png')
       await chrome.storage.local.set({ [key]: dataUrl })
-      chrome.runtime.sendMessage({ action: 'openPreview', key })
+      try {
+        chrome.runtime.sendMessage({ action: 'openPreview', key })
+      } catch {
+        // Extension context may have been invalidated; storage entry is orphaned but harmless
+      }
+    } catch {
+      showError('Capture failed — this page may block screenshots.')
+      try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
     } finally {
       removeSpinner()
     }
@@ -101,7 +108,7 @@ function activatePicker() {
   function onKeyDown(e) {
     if (e.key === 'Escape') {
       cleanup()
-      chrome.runtime.sendMessage({ action: 'pickerCancelled' })
+      try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
     }
   }
 
@@ -149,4 +156,29 @@ function showSpinner() {
 
 function removeSpinner() {
   document.getElementById('nodeshot-spinner')?.remove()
+}
+
+function showError(message) {
+  const el = document.createElement('div')
+  el.id = 'nodeshot-error'
+  Object.assign(el.style, {
+    position: 'fixed',
+    bottom: '24px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: '2147483647',
+    backgroundColor: 'rgba(220,38,38,0.95)',
+    color: '#fff',
+    padding: '10px 20px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontFamily: 'system-ui, sans-serif',
+    pointerEvents: 'none',
+    maxWidth: '420px',
+    textAlign: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+  })
+  el.textContent = `NodeShot: ${message}`
+  document.body.appendChild(el)
+  setTimeout(() => el.remove(), 4000)
 }

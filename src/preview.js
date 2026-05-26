@@ -6,34 +6,60 @@ let cropController = null
 async function init() {
   const params = new URLSearchParams(location.hash.slice(1))
   const key = params.get('key')
-  if (!key) return
-
-  const result = await chrome.storage.local.get(key)
-  const dataUrl = result[key]
-  await chrome.storage.local.remove(key)
-
-  const image = new Image()
-  image.src = dataUrl
-  await new Promise((resolve, reject) => {
-    image.onload = resolve
-    image.onerror = reject
-  })
-
-  const canvas = document.getElementById('crop-canvas')
-  cropController = new CropController(canvas, image)
-
-  document.getElementById('loading').style.display = 'none'
-  document.getElementById('btn-png').disabled = false
-  document.getElementById('btn-pdf').disabled = false
-
-  const filenameEl = document.getElementById('filename')
-  if (!filenameEl.value) {
-    const ts = Date.now()
-    filenameEl.value = `nodeshot-${ts}`
+  if (!key) {
+    showInitError('No capture key found in URL.')
+    return
   }
 
-  document.getElementById('btn-png').addEventListener('click', () => savePng(image))
-  document.getElementById('btn-pdf').addEventListener('click', () => savePdf(image))
+  try {
+    const result = await chrome.storage.local.get(key)
+    const dataUrl = result[key]
+    if (!dataUrl) {
+      showInitError('Capture data not found — it may have already been used.')
+      return
+    }
+    await chrome.storage.local.remove(key)
+
+    const image = new Image()
+    image.src = dataUrl
+    await new Promise((resolve, reject) => {
+      image.onload = resolve
+      image.onerror = reject
+    })
+
+    const canvas = document.getElementById('crop-canvas')
+    cropController = new CropController(canvas, image)
+
+    document.getElementById('loading').style.display = 'none'
+    document.getElementById('btn-png').disabled = false
+    document.getElementById('btn-pdf').disabled = false
+
+    const filenameEl = document.getElementById('filename')
+    if (!filenameEl.value) {
+      const ts = Date.now()
+      filenameEl.value = `nodeshot-${ts}`
+    }
+
+    document.getElementById('btn-png').addEventListener('click', () => savePng(image))
+    document.getElementById('btn-pdf').addEventListener('click', () => savePdf(image))
+  } catch {
+    showInitError('Failed to load capture — please close this tab and try again.')
+  }
+}
+
+function showInitError(message) {
+  const loading = document.getElementById('loading')
+  if (!loading) return
+  loading.textContent = message
+  loading.style.color = '#ef4444'
+}
+
+function setStatus(message, isError = false) {
+  const el = document.getElementById('status')
+  if (!el) return
+  el.textContent = message
+  el.style.color = isError ? '#ef4444' : ''
+  setTimeout(() => { if (el.textContent === message) el.textContent = '' }, 3000)
 }
 
 class CropController {
@@ -147,24 +173,27 @@ class CropController {
 }
 
 async function savePng(image) {
-  const rect = cropController.getCropRect()
-  const { x, y, w, h } = rect
-  const offscreen = new OffscreenCanvas(w, h)
-  const ctx = offscreen.getContext('2d')
-  ctx.drawImage(image, x, y, w, h, 0, 0, w, h)
-  const blob = await offscreen.convertToBlob({ type: 'image/png' })
+  try {
+    const rect = cropController.getCropRect()
+    const { x, y, w, h } = rect
+    const offscreen = new OffscreenCanvas(w, h)
+    const ctx = offscreen.getContext('2d')
+    ctx.drawImage(image, x, y, w, h, 0, 0, w, h)
+    const blob = await offscreen.convertToBlob({ type: 'image/png' })
 
-  const filename = document.getElementById('filename').value || 'nodeshot'
-  const handle = await window.showSaveFilePicker({
-    suggestedName: `${filename}.png`,
-    types: [{ description: 'PNG Image', accept: { 'image/png': ['.png'] } }],
-  })
-  const writable = await handle.createWritable()
-  await writable.write(blob)
-  await writable.close()
+    const filename = document.getElementById('filename').value || 'nodeshot'
+    const handle = await window.showSaveFilePicker({
+      suggestedName: `${filename}.png`,
+      types: [{ description: 'PNG Image', accept: { 'image/png': ['.png'] } }],
+    })
+    const writable = await handle.createWritable()
+    await writable.write(blob)
+    await writable.close()
 
-  document.getElementById('status').textContent = 'Saved PNG'
-  setTimeout(() => { document.getElementById('status').textContent = '' }, 3000)
+    setStatus('Saved PNG')
+  } catch (err) {
+    if (err.name !== 'AbortError') setStatus('Save failed — please try again.', true)
+  }
 }
 
 function blobToArrayBuffer(blob) {
@@ -178,32 +207,35 @@ function blobToArrayBuffer(blob) {
 }
 
 async function savePdf(image) {
-  const { x, y, w, h } = cropController.getCropRect()
-  const offscreen = new OffscreenCanvas(w, h)
-  const ctx = offscreen.getContext('2d')
-  ctx.drawImage(image, x, y, w, h, 0, 0, w, h)
-  const pngBlob = await offscreen.convertToBlob({ type: 'image/png' })
-  const pngArrayBuffer = await blobToArrayBuffer(pngBlob)
+  try {
+    const { x, y, w, h } = cropController.getCropRect()
+    const offscreen = new OffscreenCanvas(w, h)
+    const ctx = offscreen.getContext('2d')
+    ctx.drawImage(image, x, y, w, h, 0, 0, w, h)
+    const pngBlob = await offscreen.convertToBlob({ type: 'image/png' })
+    const pngArrayBuffer = await blobToArrayBuffer(pngBlob)
 
-  const pdfDoc = await PDFDocument.create()
-  const pngImage = await pdfDoc.embedPng(pngArrayBuffer)
-  const page = pdfDoc.addPage([w, h])
-  page.drawImage(pngImage, { x: 0, y: 0, width: w, height: h })
+    const pdfDoc = await PDFDocument.create()
+    const pngImage = await pdfDoc.embedPng(pngArrayBuffer)
+    const page = pdfDoc.addPage([w, h])
+    page.drawImage(pngImage, { x: 0, y: 0, width: w, height: h })
 
-  const pdfBytes = await pdfDoc.save()
-  const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
+    const pdfBytes = await pdfDoc.save()
+    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
 
-  const filename = document.getElementById('filename').value || 'nodeshot'
-  const handle = await window.showSaveFilePicker({
-    suggestedName: `${filename}.pdf`,
-    types: [{ description: 'PDF Document', accept: { 'application/pdf': ['.pdf'] } }],
-  })
-  const writable = await handle.createWritable()
-  await writable.write(pdfBlob)
-  await writable.close()
+    const filename = document.getElementById('filename').value || 'nodeshot'
+    const handle = await window.showSaveFilePicker({
+      suggestedName: `${filename}.pdf`,
+      types: [{ description: 'PDF Document', accept: { 'application/pdf': ['.pdf'] } }],
+    })
+    const writable = await handle.createWritable()
+    await writable.write(pdfBlob)
+    await writable.close()
 
-  document.getElementById('status').textContent = 'Saved PDF'
-  setTimeout(() => { document.getElementById('status').textContent = '' }, 3000)
+    setStatus('Saved PDF')
+  } catch (err) {
+    if (err.name !== 'AbortError') setStatus('Save failed — please try again.', true)
+  }
 }
 
 init()

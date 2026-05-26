@@ -170,3 +170,47 @@ describe('content: full-render capture (click)', () => {
     })
   })
 })
+
+describe('content: capture error handling', () => {
+  // Helper: set up content script with html2canvas mocked to reject
+  async function setupWithFailingCapture() {
+    document.body.innerHTML = ''
+    delete window.__nodeShotInjected
+    global.chrome = freshChrome()
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-err')
+
+    vi.resetModules()
+    const h2c = await import('html2canvas')
+    h2c.default.mockRejectedValue(new Error('CSP violation: toIFrame blocked'))
+
+    await import('../src/content.js')
+
+    // Set up a hoverable target so onClick has a currentTarget
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 0, left: 0, width: 100, height: 100 })
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
+    overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }))
+
+    await new Promise((r) => setTimeout(r, 0))
+  }
+
+  it('shows an error toast when html2canvas throws', async () => {
+    await setupWithFailingCapture()
+    const toast = document.getElementById('nodeshot-error')
+    expect(toast).not.toBeNull()
+    expect(toast.textContent).toContain('Capture failed')
+  })
+
+  it('sends pickerCancelled to clear the badge when html2canvas throws', async () => {
+    await setupWithFailingCapture()
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'pickerCancelled' })
+  })
+
+  it('removes the spinner even when html2canvas throws', async () => {
+    await setupWithFailingCapture()
+    expect(document.getElementById('nodeshot-spinner')).toBeNull()
+  })
+})

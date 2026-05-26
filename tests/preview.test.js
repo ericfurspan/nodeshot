@@ -223,6 +223,110 @@ describe('CropController drag handles', () => {
   }
 })
 
+describe('preview: init error handling', () => {
+  function setupDOM() {
+    document.body.innerHTML = `
+      <input id="filename" /><button id="btn-png" disabled></button>
+      <button id="btn-pdf" disabled></button><span id="status"></span>
+      <canvas id="crop-canvas"></canvas><div id="loading">Loading…</div>
+    `
+    mockImage()
+    mockCanvasContext()
+    mockOffscreenCanvas()
+  }
+
+  it('shows an error in the loading div when storage has no data for the key', async () => {
+    vi.resetModules()
+    Object.defineProperty(window, 'location', { value: { hash: '#key=missing-key' }, writable: true })
+    setupDOM()
+    global.chrome = {
+      storage: {
+        local: {
+          get: vi.fn().mockResolvedValue({}), // key not present
+          remove: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    }
+
+    await import('../src/preview.js')
+    await new Promise((r) => setTimeout(r, 50))
+
+    const loading = document.getElementById('loading')
+    expect(loading.style.display).not.toBe('none')
+    expect(loading.textContent).toMatch(/not found/i)
+  })
+
+  it('shows an error in the loading div when storage.get rejects', async () => {
+    vi.resetModules()
+    Object.defineProperty(window, 'location', { value: { hash: '#key=err-key' }, writable: true })
+    setupDOM()
+    global.chrome = {
+      storage: {
+        local: {
+          get: vi.fn().mockRejectedValue(new Error('storage unavailable')),
+          remove: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    }
+
+    await import('../src/preview.js')
+    await new Promise((r) => setTimeout(r, 50))
+
+    const loading = document.getElementById('loading')
+    expect(loading.style.display).not.toBe('none')
+    expect(loading.style.color).toBe('rgb(239, 68, 68)') // jsdom normalises #ef4444 → rgb
+  })
+})
+
+describe('preview: save error handling', () => {
+  // Full init setup so buttons are enabled
+  async function setupWithImage(key = 'save-err-key') {
+    vi.resetModules()
+    Object.defineProperty(window, 'location', { value: { hash: `#key=${key}` }, writable: true })
+    document.body.innerHTML = `
+      <input id="filename" value="my-shot" /><button id="btn-png" disabled></button>
+      <button id="btn-pdf" disabled></button><span id="status"></span>
+      <canvas id="crop-canvas"></canvas><div id="loading"></div>
+    `
+    const fakeDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII='
+    global.chrome = {
+      storage: {
+        local: {
+          get: vi.fn().mockResolvedValue({ [key]: fakeDataUrl }),
+          remove: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    }
+    mockImage()
+    mockCanvasContext()
+    mockOffscreenCanvas()
+    await import('../src/preview.js')
+    await new Promise((r) => setTimeout(r, 50))
+  }
+
+  it('does not show error status when user cancels the file picker (AbortError)', async () => {
+    await setupWithImage('abort-key')
+    const abortErr = Object.assign(new Error('cancelled'), { name: 'AbortError' })
+    global.showSaveFilePicker = vi.fn().mockRejectedValue(abortErr)
+
+    document.getElementById('btn-png').click()
+    await new Promise((r) => setTimeout(r, 50))
+
+    expect(document.getElementById('status').textContent).toBe('')
+  })
+
+  it('shows error status when save fails for an unexpected reason', async () => {
+    await setupWithImage('fail-key')
+    global.showSaveFilePicker = vi.fn().mockRejectedValue(new Error('disk full'))
+
+    document.getElementById('btn-png').click()
+    await new Promise((r) => setTimeout(r, 50))
+
+    expect(document.getElementById('status').textContent).toMatch(/Save failed/i)
+    expect(document.getElementById('status').style.color).toBe('rgb(239, 68, 68)') // jsdom normalises #ef4444 → rgb
+  })
+})
+
 describe('preview: Save PNG', () => {
   it('crops image to current rect and calls showSaveFilePicker', async () => {
     mockImage()

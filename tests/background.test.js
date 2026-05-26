@@ -98,4 +98,32 @@ describe('background: messages', () => {
       url: 'chrome-extension://fakeextid/preview.html#key=abc123',
     })
   })
+
+  it('does not throw when tabs.create fails on openPreview', async () => {
+    chrome.tabs.create = vi.fn().mockImplementation(() => { throw new Error('incognito') })
+    expect(() =>
+      globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { tab: { id: 42 } }),
+    ).not.toThrow()
+  })
+
+  it('does not throw when setBadgeText fails on pickerCancelled', () => {
+    chrome.action.setBadgeText = vi.fn().mockImplementation(() => { throw new Error('tab closed') })
+    expect(() =>
+      globalThis._onMessageCb({ action: 'pickerCancelled' }, { tab: { id: 42 } }),
+    ).not.toThrow()
+  })
+})
+
+describe('background: icon click — badge failure resilience', () => {
+  beforeEach(async () => {
+    vi.resetModules()
+    globalThis._onClickedCb = null
+    global.chrome = makeChrome({ sendMessageRejects: false })
+    await import('../src/background.js')
+  })
+
+  it('does not throw when setBadgeText fails after successful activation', async () => {
+    chrome.action.setBadgeText = vi.fn().mockImplementation(() => { throw new Error('tab closed') })
+    await expect(globalThis._onClickedCb({ id: 42 })).resolves.not.toThrow()
+  })
 })

@@ -13,22 +13,30 @@ chrome.action.onClicked.addListener(async (tab) => {
       return
     }
   }
-  chrome.action.setBadgeText({ text: '●', tabId: tab.id })
-  chrome.action.setBadgeBackgroundColor({ color: '#3b82f6', tabId: tab.id })
+  try {
+    chrome.action.setBadgeText({ text: '●', tabId: tab.id })
+    chrome.action.setBadgeBackgroundColor({ color: '#3b82f6', tabId: tab.id })
+  } catch {
+    // Tab may have closed between click and badge update
+  }
 })
 
 chrome.runtime.onMessage.addListener((message, sender) => {
   const tabId = sender.tab?.id
 
   if (message.action === 'pickerCancelled') {
-    chrome.action.setBadgeText({ text: '', tabId })
+    try { chrome.action.setBadgeText({ text: '', tabId }) } catch {}
     return
   }
 
   if (message.action === 'openPreview') {
-    chrome.action.setBadgeText({ text: '', tabId })
-    chrome.tabs.create({
-      url: chrome.runtime.getURL(`preview.html#key=${message.key}`),
-    })
+    try { chrome.action.setBadgeText({ text: '', tabId }) } catch {}
+    try {
+      chrome.tabs.create({
+        url: chrome.runtime.getURL(`preview.html#key=${message.key}`),
+      })
+    } catch {
+      // Tab creation failed (e.g., incognito without extension permission)
+    }
   }
 })
