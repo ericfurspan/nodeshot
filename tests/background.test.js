@@ -150,6 +150,7 @@ describe('background: captureViewport', () => {
       { tab: { id: 1, windowId: 5 } },
     )
     expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledWith(5, { format: 'png' })
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/png;base64,/))
   })
 
   it('scales rect by devicePixelRatio when cropping', async () => {
@@ -177,8 +178,15 @@ describe('background: captureViewport', () => {
 
     expect(createdW).toBe(200) // 100 * 2
     expect(createdH).toBe(100) // 50 * 2
-    expect(drawArgs[1]).toBe(40) // left * dpr
-    expect(drawArgs[2]).toBe(20) // top * dpr
+    expect(drawArgs[0]).toHaveProperty('width', 200) // ImageBitmap
+    expect(drawArgs[1]).toBe(40) // cropX = left * dpr
+    expect(drawArgs[2]).toBe(20) // cropY = top * dpr
+    expect(drawArgs[3]).toBe(200) // cropW = width * dpr
+    expect(drawArgs[4]).toBe(100) // cropH = height * dpr
+    expect(drawArgs[5]).toBe(0) // dest x
+    expect(drawArgs[6]).toBe(0) // dest y
+    expect(drawArgs[7]).toBe(200) // dest width
+    expect(drawArgs[8]).toBe(100) // dest height
   })
 
   it('stores cropped data URL and opens preview tab', async () => {
@@ -186,7 +194,9 @@ describe('background: captureViewport', () => {
       { action: 'captureViewport', key: 'k3', rect: { top: 0, left: 0, width: 50, height: 50 }, devicePixelRatio: 1 },
       { tab: { id: 1, windowId: 5 } },
     )
-    expect(chrome.storage.local.set).toHaveBeenCalled()
+    expect(chrome.storage.local.set).toHaveBeenCalledWith(
+      expect.objectContaining({ k3: expect.stringMatching(/^data:image\/png;base64,/) })
+    )
     expect(chrome.tabs.create).toHaveBeenCalledWith({
       url: 'chrome-extension://fakeextid/preview.html#key=k3',
     })
