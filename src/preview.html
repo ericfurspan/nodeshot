@@ -8,58 +8,124 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #1a1a1a;
+      background: #141414;
       color: #e5e5e5;
-      font-family: system-ui, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       height: 100vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
 
+    /* ── Toolbar ───────────────────────────────────────── */
     #toolbar {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 16px;
-      background: #252525;
-      border-bottom: 1px solid #333;
+      height: 54px;
+      padding: 0 20px;
+      background: #1c1c1c;
+      border-bottom: 1px solid #272727;
       flex-shrink: 0;
     }
 
-    #filename {
+    /* Brand */
+    #brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      flex-shrink: 0;
+      padding-right: 20px;
+      user-select: none;
+    }
+
+    .sep {
+      width: 1px;
+      height: 26px;
+      background: #2d2d2d;
+      flex-shrink: 0;
+    }
+
+    /* Filename */
+    #filename-wrap {
       flex: 1;
+      padding: 0 20px;
+      min-width: 0;
+    }
+
+    #filename {
+      width: 100%;
       max-width: 280px;
-      background: #1a1a1a;
-      border: 1px solid #444;
-      border-radius: 4px;
+      background: #141414;
+      border: 1px solid #303030;
+      border-radius: 5px;
       color: #e5e5e5;
       font-size: 13px;
-      padding: 5px 8px;
+      font-family: inherit;
+      padding: 6px 10px;
       outline: none;
+      transition: border-color 0.15s;
     }
     #filename:focus { border-color: #3b82f6; }
+    #filename::placeholder { color: #3a3a3a; }
 
-    .btn {
-      padding: 5px 14px;
-      border: none;
-      border-radius: 4px;
-      font-size: 13px;
-      cursor: pointer;
-      font-weight: 500;
+    /* Action buttons */
+    #actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 20px;
+      flex-shrink: 0;
     }
-    #btn-png { background: #3b82f6; color: #fff; }
-    #btn-png:hover { background: #2563eb; }
-    #btn-pdf { background: #6366f1; color: #fff; }
-    #btn-pdf:hover { background: #4f46e5; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    .btn-save {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      width: 58px;
+      height: 40px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      line-height: 1;
+      transition: background 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-save svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+    .btn-save:active:not(:disabled) { opacity: 0.8; }
+    .btn-save:disabled { opacity: 0.28; cursor: not-allowed; }
+
+    #btn-png { background: #3b82f6; color: #fff; }
+    #btn-png:hover:not(:disabled) { background: #2563eb; }
+
+    #btn-pdf { background: #fff; color: #111; }
+    #btn-pdf:hover:not(:disabled) { background: #e8e8e8; }
+
+    /* Status */
     #status {
       font-size: 12px;
-      color: #888;
-      margin-left: auto;
+      color: #555;
+      padding-left: 16px;
+      min-width: 86px;
+      text-align: right;
+      flex-shrink: 0;
     }
 
+    /* ── Canvas area ───────────────────────────────────── */
     #canvas-area {
       flex: 1;
       overflow: auto;
@@ -76,25 +142,67 @@
       cursor: default;
     }
 
+    /* ── Loading overlay ───────────────────────────────── */
     #loading {
       position: fixed;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #1a1a1a;
-      font-size: 15px;
-      color: #888;
+      background: #141414;
+      font-size: 14px;
+      color: #555;
     }
   </style>
 </head>
 <body>
   <div id="toolbar">
-    <input id="filename" type="text" placeholder="nodeshot-filename" />
-    <button class="btn" id="btn-png" disabled>Save PNG</button>
-    <button class="btn" id="btn-pdf" disabled>Save PDF</button>
+
+    <!-- Brand mark -->
+    <div id="brand">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 8V3h5"  stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14 3h5v5" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3 14v5h5" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19 14v5h-5" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="11" cy="11" r="2" fill="#3b82f6"/>
+      </svg>
+      NodeShot
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- Filename -->
+    <div id="filename-wrap">
+      <input id="filename" type="text" placeholder="filename" />
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- Save buttons -->
+    <div id="actions">
+      <button class="btn-save" id="btn-png" disabled>
+        <!-- Download arrow -->
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 2v8"       stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M5 8l3 3 3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3 13.5h10"   stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        PNG
+      </button>
+      <button class="btn-save" id="btn-pdf" disabled>
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 2v8"       stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M5 8l3 3 3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3 13.5h10"   stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        PDF
+      </button>
+    </div>
+
     <span id="status"></span>
   </div>
+
   <div id="canvas-area">
     <canvas id="crop-canvas"></canvas>
   </div>

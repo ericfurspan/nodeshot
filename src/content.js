@@ -28,8 +28,9 @@ function activatePicker() {
     position: 'fixed',
     zIndex: '2147483647',
     pointerEvents: 'none',
-    border: '2px solid #3b82f6',
-    backgroundColor: 'rgba(59,130,246,0.1)',
+    border: '2px solid #60a5fa',
+    backgroundColor: 'rgba(96,165,250,0.07)',
+    boxShadow: '0 0 0 3px rgba(96,165,250,0.15)',
     display: 'none',
   })
 
@@ -42,14 +43,19 @@ function activatePicker() {
     right: '0',
     zIndex: '2147483647',
     pointerEvents: 'none',
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.92)',
     color: '#fff',
-    padding: '8px 16px',
+    padding: '9px 20px',
     fontSize: '13px',
-    fontFamily: 'system-ui, sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
     textAlign: 'center',
+    borderBottom: '1px solid rgba(96,165,250,0.25)',
+    letterSpacing: '0.01em',
   })
-  banner.textContent = 'NodeShot — click to capture, Esc to cancel'
+  banner.innerHTML = `
+    <style>@keyframes ns-blink{0%,100%{opacity:1}50%{opacity:.3}}</style>
+    <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#60a5fa;margin-right:9px;vertical-align:middle;animation:ns-blink 2s ease-in-out infinite;"></span>NodeShot — hover to select, click to capture · <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Esc</span> to cancel
+  `
 
   document.body.appendChild(overlay)
   document.body.appendChild(highlight)
@@ -88,6 +94,10 @@ function activatePicker() {
 
     cleanup()
     showSpinner()
+    // Yield to the browser so the spinner paints before html2canvas starts its
+    // synchronous DOM traversal — otherwise the spinner never appears until after
+    // the heavy work is already done.
+    await new Promise((resolve) => setTimeout(resolve, 0))
     try {
       const canvas = await html2canvas(target, { useCORS: true, logging: false })
       const dataUrl = canvas.toDataURL('image/png')
