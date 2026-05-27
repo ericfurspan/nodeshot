@@ -171,6 +171,95 @@ describe('content: full-render capture (click)', () => {
   })
 })
 
+describe('content: Shift-to-lock', () => {
+  let overlay, target, mockH2c
+
+  beforeEach(async () => {
+    document.body.innerHTML = ''
+    delete window.__nodeShotInjected
+    global.chrome = freshChrome()
+    vi.resetModules()
+    const h2cMod = await import('html2canvas')
+    mockH2c = h2cMod.default
+    await import('../src/content.js')
+
+    target = document.createElement('div')
+    document.body.appendChild(target)
+    overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 10, left: 20, width: 100, height: 50 })
+    // Establish currentTarget by hovering
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 30 }))
+  })
+
+  it('ignores mousemove while Shift is held', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
+    const other = document.createElement('div')
+    document.body.appendChild(other)
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, other])
+    vi.spyOn(other, 'getBoundingClientRect').mockReturnValue({ top: 200, left: 200, width: 50, height: 50 })
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 250 }))
+    const highlight = document.getElementById('nodeshot-highlight')
+    // Position unchanged — still the original frozen target
+    expect(highlight.style.top).toBe('10px')
+    expect(highlight.style.left).toBe('20px')
+  })
+
+  it('does not freeze when Shift is pressed with no hovered target', () => {
+    // Clear currentTarget by moving mouse off all elements
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay])
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 0, clientY: 0 }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
+    // Hover a new element — highlight should update normally (not frozen)
+    const fresh = document.createElement('div')
+    document.body.appendChild(fresh)
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, fresh])
+    vi.spyOn(fresh, 'getBoundingClientRect').mockReturnValue({ top: 99, left: 99, width: 50, height: 50 })
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 100, clientY: 100 }))
+    expect(document.getElementById('nodeshot-highlight').style.top).toBe('99px')
+  })
+
+  it('resumes normal hover after Shift is released', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift', bubbles: true }))
+    const other = document.createElement('div')
+    document.body.appendChild(other)
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, other])
+    vi.spyOn(other, 'getBoundingClientRect').mockReturnValue({ top: 300, left: 300, width: 80, height: 40 })
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 300 }))
+    expect(document.getElementById('nodeshot-highlight').style.top).toBe('300px')
+  })
+
+  it('captures the frozen element (not the hovered one) when clicked while Shift is held', async () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
+    // Mouse moves to a different element while frozen
+    const other = document.createElement('div')
+    document.body.appendChild(other)
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, other])
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 250 }))
+    // Click — should capture original (frozen) target, not other
+    overlay.dispatchEvent(new MouseEvent('click', { clientX: 250, clientY: 250, shiftKey: true }))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(mockH2c).toHaveBeenCalledWith(target, expect.any(Object))
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'openPreview' }),
+    )
+  })
+
+  it('updates the banner to indicate locked state when frozen', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
+    expect(document.getElementById('nodeshot-banner').textContent).toContain('locked')
+  })
+
+  it('restores the normal banner when Shift is released', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift', bubbles: true }))
+    const banner = document.getElementById('nodeshot-banner')
+    expect(banner.textContent).toContain('NodeShot')
+    expect(banner.textContent).not.toContain('locked')
+  })
+})
+
 describe('content: capture error handling', () => {
   // Helper: set up content script with html2canvas mocked to reject
   async function setupWithFailingCapture() {

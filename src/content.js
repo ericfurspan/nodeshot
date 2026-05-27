@@ -52,18 +52,51 @@ function activatePicker() {
     borderBottom: '1px solid rgba(96,165,250,0.25)',
     letterSpacing: '0.01em',
   })
-  banner.innerHTML = `
-    <style>@keyframes ns-blink{0%,100%{opacity:1}50%{opacity:.3}}</style>
-    <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#60a5fa;margin-right:9px;vertical-align:middle;animation:ns-blink 2s ease-in-out infinite;"></span>NodeShot — hover to select, click to capture · <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Esc</span> to cancel
-  `
+  setBannerNormal()
 
   document.body.appendChild(overlay)
   document.body.appendChild(highlight)
   document.body.appendChild(banner)
 
   let currentTarget = null
+  let shiftHeld = false
+  let frozenTarget = null
+
+  // ── Frozen state helpers ──────────────────────────────────────────────────
+
+  function setFrozen(frozen) {
+    if (frozen) {
+      Object.assign(highlight.style, {
+        border: '2px solid #fff',
+        boxShadow: '0 0 0 3px rgba(255,255,255,0.12)',
+      })
+      banner.style.borderBottomColor = 'rgba(255,255,255,0.15)'
+      banner.innerHTML = `
+        <style>@keyframes ns-blink{0%,100%{opacity:1}50%{opacity:.3}}</style>
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#fff;margin-right:9px;vertical-align:middle;"></span>Node locked — click to capture · release <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Shift</span> to resume
+      `
+    } else {
+      Object.assign(highlight.style, {
+        border: '2px solid #60a5fa',
+        boxShadow: '0 0 0 3px rgba(96,165,250,0.15)',
+      })
+      banner.style.borderBottomColor = 'rgba(96,165,250,0.25)'
+      setBannerNormal()
+    }
+  }
+
+  function setBannerNormal() {
+    banner.innerHTML = `
+      <style>@keyframes ns-blink{0%,100%{opacity:1}50%{opacity:.3}}</style>
+      <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#60a5fa;margin-right:9px;vertical-align:middle;animation:ns-blink 2s ease-in-out infinite;"></span>NodeShot — hover to select, click to capture · <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Esc</span> to cancel
+    `
+  }
+
+  // ── Event handlers ────────────────────────────────────────────────────────
 
   function onMouseMove(e) {
+    if (shiftHeld) return  // frozen — don't change the selection
+
     const els = document.elementsFromPoint(e.clientX, e.clientY)
     const target = els.find(
       (el) => el.id !== 'nodeshot-overlay' && el.id !== 'nodeshot-highlight' && el.id !== 'nodeshot-banner',
@@ -119,12 +152,49 @@ function activatePicker() {
     if (e.key === 'Escape') {
       cleanup()
       try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
+      return
     }
+    if (e.key === 'Shift' && !shiftHeld && currentTarget) {
+      shiftHeld = true
+      frozenTarget = currentTarget
+      setFrozen(true)
+    }
+  }
+
+  function onKeyUp(e) {
+    if (e.key === 'Shift' && shiftHeld) {
+      shiftHeld = false
+      frozenTarget = null
+      setFrozen(false)
+    }
+  }
+
+  // Tracks the frozen node's screen position as the page scrolls beneath it.
+  function onScroll() {
+    if (!frozenTarget) return
+    const r = frozenTarget.getBoundingClientRect()
+    Object.assign(highlight.style, {
+      top: r.top + 'px',
+      left: r.left + 'px',
+      width: r.width + 'px',
+      height: r.height + 'px',
+    })
+  }
+
+  // Reset frozen state if the window loses focus while Shift is held (e.g. alt-tab).
+  function onBlur() {
+    if (!shiftHeld) return
+    shiftHeld = false
+    frozenTarget = null
+    setFrozen(false)
   }
 
   overlay.addEventListener('mousemove', onMouseMove)
   overlay.addEventListener('click', onClick)
   document.addEventListener('keydown', onKeyDown)
+  document.addEventListener('keyup', onKeyUp)
+  window.addEventListener('scroll', onScroll, { capture: true, passive: true })
+  window.addEventListener('blur', onBlur)
 
   function cleanup() {
     document.getElementById('nodeshot-overlay')?.remove()
@@ -132,6 +202,9 @@ function activatePicker() {
     document.getElementById('nodeshot-banner')?.remove()
     document.getElementById('nodeshot-spinner')?.remove()
     document.removeEventListener('keydown', onKeyDown)
+    document.removeEventListener('keyup', onKeyUp)
+    window.removeEventListener('scroll', onScroll, { capture: true })
+    window.removeEventListener('blur', onBlur)
   }
 }
 
