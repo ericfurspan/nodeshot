@@ -1,6 +1,24 @@
 // src/content.js
 import html2canvas from 'html2canvas'
 
+// Attribute set on every element we inject so cleanup() can distinguish our nodes
+// from any page element that happens to share one of our IDs (DOM clobbering guard).
+const NS = 'data-nodeshot'
+
+// CSS Color 4 functions not recognised by html2canvas (only rgb/rgba/hsl/hsla are).
+const UNSUPPORTED_COLOR_FN = /\b(?:color|oklch|oklab|lab|lch|hwb|color-mix|light-dark)\s*\(/i
+
+// Colour properties html2canvas parses per-element (longhand only).
+const COLOR_PROPS = [
+  'color', 'background-color',
+  'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
+  'outline-color', 'text-decoration-color', 'caret-color',
+  'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color',
+]
+const FOREGROUND_COLOR_PROPS = new Set([
+  'color', 'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'caret-color',
+])
+
 if (!window.__nodeShotInjected) {
   window.__nodeShotInjected = true
   chrome.runtime.onMessage.addListener((msg) => {
@@ -18,6 +36,7 @@ function activatePicker() {
 
   const overlay = document.createElement('div')
   overlay.id = 'nodeshot-overlay'
+  overlay.setAttribute(NS, '')
   Object.assign(overlay.style, {
     position: 'fixed',
     inset: '0',
@@ -30,6 +49,7 @@ function activatePicker() {
 
   const highlight = document.createElement('div')
   highlight.id = 'nodeshot-highlight'
+  highlight.setAttribute(NS, '')
   Object.assign(highlight.style, {
     position: 'fixed',
     zIndex: '2147483647',
@@ -44,6 +64,7 @@ function activatePicker() {
 
   const reticle = document.createElement('div')
   reticle.id = 'nodeshot-reticle'
+  reticle.setAttribute(NS, '')
   Object.assign(reticle.style, {
     position: 'fixed',
     zIndex: '2147483647',
@@ -96,6 +117,7 @@ function activatePicker() {
 
   const banner = document.createElement('div')
   banner.id = 'nodeshot-banner'
+  banner.setAttribute(NS, '')
   Object.assign(banner.style, {
     position: 'fixed',
     top: '0', left: '0', right: '0',
@@ -166,19 +188,6 @@ function activatePicker() {
   }
 
   // ── Capture helper ────────────────────────────────────────────────────────
-
-  // CSS Color 4 functions not recognised by html2canvas (only rgb/rgba/hsl/hsla are).
-  // Matches: color(), oklch(), oklab(), lab(), lch(), hwb(), color-mix(), light-dark()
-  const UNSUPPORTED_COLOR_FN = /\b(?:color|oklch|oklab|lab|lch|hwb|color-mix|light-dark)\s*\(/i
-
-  // Colour properties that html2canvas parses individually (longhand only).
-  const COLOR_PROPS = [
-    'color', 'background-color',
-    'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
-    'outline-color', 'text-decoration-color', 'caret-color',
-    'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color',
-  ]
-  const FOREGROUND_COLOR_PROPS = new Set(['color', 'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'caret-color'])
 
   function captureElement(target) {
     // Pre-flight: reject detached elements before paying the cost of html2canvas.
@@ -365,6 +374,7 @@ function activatePicker() {
 
     const dialog = document.createElement('div')
     dialog.id = 'nodeshot-dialog'
+    dialog.setAttribute(NS, '')
     Object.assign(dialog.style, {
       position: 'fixed',
       zIndex: '2147483647',
@@ -472,9 +482,8 @@ function activatePicker() {
     if (shiftHeld) return
 
     const els = document.elementsFromPoint(e.clientX, e.clientY)
-    const target = els.find(
-      el => el.id !== 'nodeshot-overlay' && el.id !== 'nodeshot-highlight' && el.id !== 'nodeshot-reticle' && el.id !== 'nodeshot-banner',
-    )
+    // Exclude our own injected elements; page elements never carry NS attribute.
+    const target = els.find(el => !el.hasAttribute(NS))
     if (!target || target === document.body || target === document.documentElement) {
       highlight.style.display = 'none'
       currentTarget = null
@@ -533,12 +542,13 @@ function activatePicker() {
   window.addEventListener('blur', onBlur)
 
   function cleanup() {
-    document.getElementById('nodeshot-overlay')?.remove()
-    document.getElementById('nodeshot-highlight')?.remove()
-    document.getElementById('nodeshot-reticle')?.remove()
-    document.getElementById('nodeshot-banner')?.remove()
-    document.getElementById('nodeshot-dialog')?.remove()
-    document.getElementById('nodeshot-spinner')?.remove()
+    // Only remove elements we own (have NS attribute). If a page element coincidentally
+    // shares one of our IDs, getElementById would find it — we must not remove it.
+    for (const id of ['nodeshot-overlay', 'nodeshot-highlight', 'nodeshot-reticle',
+      'nodeshot-banner', 'nodeshot-dialog', 'nodeshot-spinner']) {
+      const el = document.getElementById(id)
+      if (el?.hasAttribute(NS)) el.remove()
+    }
     document.removeEventListener('keydown', onKeyDown)
     document.removeEventListener('keyup', onKeyUp)
     window.removeEventListener('scroll', onScroll, { capture: true })
@@ -553,6 +563,7 @@ function activatePicker() {
 function showSpinner() {
   const el = document.createElement('div')
   el.id = 'nodeshot-spinner'
+  el.setAttribute(NS, '')
   Object.assign(el.style, {
     position: 'fixed',
     inset: '0',
@@ -580,7 +591,8 @@ function showSpinner() {
 }
 
 function removeSpinner() {
-  document.getElementById('nodeshot-spinner')?.remove()
+  const el = document.getElementById('nodeshot-spinner')
+  if (el?.hasAttribute(NS)) el.remove()
 }
 
 function showError(message) {
