@@ -26,7 +26,21 @@ function activatePicker() {
     background: 'transparent',
   })
 
-  // ── Reticle — visual selection indicator (not captured by html2canvas) ───
+  // ── Highlight — hover indicator (white border, visible on any bg) ─────────
+
+  const highlight = document.createElement('div')
+  highlight.id = 'nodeshot-highlight'
+  Object.assign(highlight.style, {
+    position: 'fixed',
+    zIndex: '2147483647',
+    pointerEvents: 'none',
+    border: '2px solid #fff',
+    backgroundColor: 'transparent',
+    boxShadow: '0 0 0 1px rgba(0,0,0,0.7)',
+    display: 'none',
+  })
+
+  // ── Reticle — locked-state indicator (corner brackets + crosshair + dot) ──
 
   const reticle = document.createElement('div')
   reticle.id = 'nodeshot-reticle'
@@ -35,27 +49,19 @@ function activatePicker() {
     zIndex: '2147483647',
     pointerEvents: 'none',
     display: 'none',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255,45,120,0.07)',
   })
 
   // Corner brackets: TL, TR, BL, BR
-  const cornerDefs = [
-    { top: '0', left: '0',  borderTop: '2px solid #fff', borderLeft: '2px solid #fff'   },
-    { top: '0', right: '0', borderTop: '2px solid #fff', borderRight: '2px solid #fff'  },
+  ;[
+    { top: '0',    left: '0',  borderTop: '2px solid #fff', borderLeft: '2px solid #fff'  },
+    { top: '0',    right: '0', borderTop: '2px solid #fff', borderRight: '2px solid #fff' },
     { bottom: '0', left: '0',  borderBottom: '2px solid #fff', borderLeft: '2px solid #fff'  },
     { bottom: '0', right: '0', borderBottom: '2px solid #fff', borderRight: '2px solid #fff' },
-  ]
-  const cornerSides = [
-    ['borderTop', 'borderLeft'],
-    ['borderTop', 'borderRight'],
-    ['borderBottom', 'borderLeft'],
-    ['borderBottom', 'borderRight'],
-  ]
-  const cornerEls = cornerDefs.map((styles) => {
+  ].forEach(styles => {
     const el = document.createElement('div')
     Object.assign(el.style, { position: 'absolute', width: '12px', height: '12px', ...styles })
     reticle.appendChild(el)
-    return el
   })
 
   const crossH = document.createElement('div')
@@ -101,12 +107,13 @@ function activatePicker() {
     fontSize: '13px',
     fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
     textAlign: 'center',
-    borderBottom: '1px solid rgba(96,165,250,0.25)',
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
     letterSpacing: '0.01em',
   })
   setBannerNormal()
 
   document.body.appendChild(overlay)
+  document.body.appendChild(highlight)
   document.body.appendChild(reticle)
   document.body.appendChild(banner)
 
@@ -114,7 +121,15 @@ function activatePicker() {
   let shiftHeld = false
   let frozenTarget = null
 
-  // ── Reticle helpers ───────────────────────────────────────────────────────
+  // ── Position helpers ──────────────────────────────────────────────────────
+
+  function positionHighlight(r) {
+    Object.assign(highlight.style, {
+      display: 'block',
+      top: r.top + 'px', left: r.left + 'px',
+      width: r.width + 'px', height: r.height + 'px',
+    })
+  }
 
   function positionReticle(r) {
     Object.assign(reticle.style, {
@@ -127,28 +142,18 @@ function activatePicker() {
   // ── Frozen state helpers ──────────────────────────────────────────────────
 
   function setFrozen(frozen) {
-    const cs = frozen ? '15px' : '12px'
-    const bw = frozen ? '2.5px' : '2px'
-    cornerEls.forEach((el, i) => {
-      el.style.width = cs
-      el.style.height = cs
-      cornerSides[i].forEach(side => { el.style[side] = `${bw} solid #fff` })
-    })
-    const alpha = frozen ? '0.85' : '0.45'
-    crossH.style.background = `rgba(255,255,255,${alpha})`
-    crossV.style.background = `rgba(255,255,255,${alpha})`
-    centerDot.style.width  = frozen ? '8px' : '6px'
-    centerDot.style.height = frozen ? '8px' : '6px'
-    reticle.style.backgroundColor = frozen ? 'rgba(255,45,120,0.07)' : 'transparent'
-
     if (frozen) {
+      highlight.style.display = 'none'
+      reticle.style.borderRadius = getComputedStyle(frozenTarget).borderRadius
+      positionReticle(frozenTarget.getBoundingClientRect())
       banner.style.borderBottomColor = 'rgba(255,255,255,0.15)'
       banner.innerHTML = `
         <style>@keyframes ns-blink{0%,100%{opacity:1}50%{opacity:.3}}</style>
         <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#fff;margin-right:9px;vertical-align:middle;"></span>Node locked — click to capture · release <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Shift</span> to resume
       `
     } else {
-      banner.style.borderBottomColor = 'rgba(96,165,250,0.25)'
+      reticle.style.display = 'none'
+      banner.style.borderBottomColor = 'rgba(255,255,255,0.1)'
       setBannerNormal()
     }
   }
@@ -156,21 +161,134 @@ function activatePicker() {
   function setBannerNormal() {
     banner.innerHTML = `
       <style>@keyframes ns-blink{0%,100%{opacity:1}50%{opacity:.3}}</style>
-      <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#60a5fa;margin-right:9px;vertical-align:middle;animation:ns-blink 2s ease-in-out infinite;"></span>NodeShot — hover to select, click to capture · <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Esc</span> to cancel
+      <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#fff;margin-right:9px;vertical-align:middle;animation:ns-blink 2s ease-in-out infinite;"></span>NodeShot — hover to select, click to capture · <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Esc</span> to cancel
     `
   }
 
   // ── Capture helper ────────────────────────────────────────────────────────
 
+  // CSS Color 4 functions not recognised by html2canvas (only rgb/rgba/hsl/hsla are).
+  // Matches: color(), oklch(), oklab(), lab(), lch(), hwb(), color-mix(), light-dark()
+  const UNSUPPORTED_COLOR_FN = /\b(?:color|oklch|oklab|lab|lch|hwb|color-mix|light-dark)\s*\(/i
+
+  // Colour properties that html2canvas parses individually (longhand only).
+  const COLOR_PROPS = [
+    'color', 'background-color',
+    'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
+    'outline-color', 'text-decoration-color', 'caret-color',
+    'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color',
+  ]
+  const FOREGROUND_COLOR_PROPS = new Set(['color', 'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'caret-color'])
+
   function captureElement(target) {
+    // Pre-flight: reject detached elements before paying the cost of html2canvas.
+    // A fast-updating page can remove the selected node between click and capture.
+    if (!target.isConnected) {
+      const err = new Error('Element is no longer in the document.')
+      err.expected = true
+      err.userMessage = 'Can\'t capture — the element was removed before the screenshot was taken.'
+      throw err
+    }
+
+    // Pre-flight: cross-origin iframes cannot be cloned by html2canvas.
+    // elementsFromPoint returns the <iframe> element itself for cross-origin frames,
+    // and html2canvas will reject with "Unable to find element in cloned iframe".
+    if (target.tagName === 'IFRAME') {
+      try { void target.contentWindow?.location?.href }
+      catch {
+        const err = new Error('Cross-origin iframe cannot be captured.')
+        err.expected = true
+        err.userMessage = 'Can\'t capture — this element is inside a cross-origin frame.'
+        throw err
+      }
+    }
+
     return html2canvas(target, {
       useCORS: true,
       logging: false,
+      // Fail fast on slow/blocked resources instead of waiting the 15 s default.
+      // Complex SPAs (e.g. Cloudflare-protected pages) can have CDN assets that
+      // hang on CORS preflight for a long time before the browser gives up.
+      imageTimeout: 3000,
       scrollX: window.pageXOffset,
       scrollY: window.pageYOffset,
       windowWidth: window.innerWidth,
       windowHeight: window.innerHeight,
+      onclone(doc) {
+        const view = doc.defaultView
+        if (!view) return
+
+        // Guard 1 — negative SVG <rect> dimensions.
+        // Sub-pixel layout and CSS transforms can produce negative width/height.
+        // These cause browser SVG validation errors and may abort html2canvas.
+        // Check both the HTML presentation attribute AND the CSS-applied value.
+        doc.querySelectorAll('rect').forEach(rect => {
+          const aw = parseFloat(rect.getAttribute('width'))
+          const ah = parseFloat(rect.getAttribute('height'))
+          if (!isNaN(aw) && aw < 0) rect.setAttribute('width', '0')
+          if (!isNaN(ah) && ah < 0) rect.setAttribute('height', '0')
+          const cs = view.getComputedStyle(rect)
+          const cw = parseFloat(cs.width)
+          const ch = parseFloat(cs.height)
+          if (!isNaN(cw) && cw < 0) rect.style.setProperty('width', '0px', 'important')
+          if (!isNaN(ch) && ch < 0) rect.style.setProperty('height', '0px', 'important')
+        })
+
+        // Guard 2 — CSS Color 4 functions (oklch, color(), etc.).
+        // html2canvas only knows rgb/rgba/hsl/hsla; anything else throws and aborts
+        // the entire capture. Override unsupported values with safe fallbacks before
+        // html2canvas reads the computed styles.
+        doc.querySelectorAll('*').forEach(el => {
+          const cs = view.getComputedStyle(el)
+          for (const prop of COLOR_PROPS) {
+            const val = cs.getPropertyValue(prop)
+            if (val && UNSUPPORTED_COLOR_FN.test(val)) {
+              el.style.setProperty(
+                prop,
+                FOREGROUND_COLOR_PROPS.has(prop) ? '#000000' : 'transparent',
+                'important',
+              )
+            }
+          }
+          // box-shadow and text-shadow embed a color in a multi-value string.
+          for (const prop of ['box-shadow', 'text-shadow']) {
+            const val = cs.getPropertyValue(prop)
+            if (val && val !== 'none' && UNSUPPORTED_COLOR_FN.test(val)) {
+              el.style.setProperty(prop, 'none', 'important')
+            }
+          }
+        })
+      },
     })
+  }
+
+  // ── Capture error reporting ───────────────────────────────────────────────
+
+  // Determines whether an error from html2canvas represents an expected browser
+  // limitation (cross-origin frame, detached element) vs. a genuine defect.
+  function isExpectedCaptureLimit(err) {
+    if (err?.expected === true) return true
+    const msg = err?.message ?? String(err ?? '')
+    return msg.includes('Unable to find element in cloned iframe') ||
+           msg.includes('cross-origin') ||
+           msg.includes('no longer in the document')
+  }
+
+  function reportCaptureError(err, action) {
+    if (isExpectedCaptureLimit(err)) {
+      const userMsg = err?.userMessage ?? 'Can\'t capture — the element may be inside a protected or cross-origin frame.'
+      console.warn('[NodeShot] Capture skipped (expected limitation):', err?.message ?? String(err))
+      showError(userMsg)
+    } else {
+      console.error(`[NodeShot] ${action} failed:`, err)
+      const fallbacks = {
+        Copy: 'Copy failed — capture or clipboard error.',
+        Download: 'Download failed — please try again.',
+        Crop: 'Capture failed — this page may block screenshots.',
+      }
+      showError(fallbacks[action] ?? 'Capture failed.')
+    }
+    try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
   }
 
   // ── Action handlers ───────────────────────────────────────────────────────
@@ -185,9 +303,9 @@ function activatePicker() {
         canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png')
       )
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-    } catch {
-      showError('Copy failed — clipboard access denied.')
       try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
+    } catch (err) {
+      reportCaptureError(err, 'Copy')
     } finally {
       removeSpinner()
     }
@@ -199,7 +317,9 @@ function activatePicker() {
     await new Promise(r => setTimeout(r, 0))
     try {
       const canvas = await captureElement(target)
-      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'))
+      const blob = await new Promise((res, rej) =>
+        canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png')
+      )
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -208,9 +328,9 @@ function activatePicker() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-    } catch {
-      showError('Download failed — please try again.')
       try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
+    } catch (err) {
+      reportCaptureError(err, 'Download')
     } finally {
       removeSpinner()
     }
@@ -225,12 +345,9 @@ function activatePicker() {
       const canvas = await captureElement(target)
       const dataUrl = canvas.toDataURL('image/png')
       await chrome.storage.local.set({ [key]: { dataUrl, title: document.title } })
-      try {
-        chrome.runtime.sendMessage({ action: 'openPreview', key })
-      } catch {}
-    } catch {
-      showError('Capture failed — this page may block screenshots.')
-      try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
+      try { chrome.runtime.sendMessage({ action: 'openPreview', key }) } catch {}
+    } catch (err) {
+      reportCaptureError(err, 'Crop')
     } finally {
       removeSpinner()
     }
@@ -356,15 +473,15 @@ function activatePicker() {
 
     const els = document.elementsFromPoint(e.clientX, e.clientY)
     const target = els.find(
-      el => el.id !== 'nodeshot-overlay' && el.id !== 'nodeshot-reticle' && el.id !== 'nodeshot-banner',
+      el => el.id !== 'nodeshot-overlay' && el.id !== 'nodeshot-highlight' && el.id !== 'nodeshot-reticle' && el.id !== 'nodeshot-banner',
     )
     if (!target || target === document.body || target === document.documentElement) {
-      reticle.style.display = 'none'
+      highlight.style.display = 'none'
       currentTarget = null
       return
     }
     currentTarget = target
-    positionReticle(target.getBoundingClientRect())
+    positionHighlight(target.getBoundingClientRect())
   }
 
   function onClick(e) {
@@ -417,6 +534,7 @@ function activatePicker() {
 
   function cleanup() {
     document.getElementById('nodeshot-overlay')?.remove()
+    document.getElementById('nodeshot-highlight')?.remove()
     document.getElementById('nodeshot-reticle')?.remove()
     document.getElementById('nodeshot-banner')?.remove()
     document.getElementById('nodeshot-dialog')?.remove()
