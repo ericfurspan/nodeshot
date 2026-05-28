@@ -156,12 +156,12 @@ class CropController {
     ctx.fillRect(0, y + h, canvas.width, canvas.height - y - h)
     ctx.fillRect(0, y, x, h)
     ctx.fillRect(x + w, y, canvas.width - x - w, h)
-    ctx.strokeStyle = '#3b82f6'
+    ctx.strokeStyle = '#fff'
     ctx.lineWidth = 2
     ctx.strokeRect(x, y, w, h)
     const hs = this.handleSize
     ctx.fillStyle = '#fff'
-    ctx.strokeStyle = '#3b82f6'
+    ctx.strokeStyle = '#000'
     ctx.lineWidth = 1
     for (const { x: hx, y: hy } of Object.values(this.handles)) {
       ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs)

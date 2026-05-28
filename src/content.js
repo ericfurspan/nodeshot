@@ -28,9 +28,9 @@ function activatePicker() {
     position: 'fixed',
     zIndex: '2147483647',
     pointerEvents: 'none',
-    border: '2px solid #60a5fa',
-    backgroundColor: 'rgba(96,165,250,0.07)',
-    boxShadow: '0 0 0 3px rgba(96,165,250,0.15)',
+    border: '2px solid #fff',
+    backgroundColor: 'transparent',
+    boxShadow: '0 0 0 1px rgba(0,0,0,0.7)',
     display: 'none',
   })
 
@@ -67,8 +67,9 @@ function activatePicker() {
   function setFrozen(frozen) {
     if (frozen) {
       Object.assign(highlight.style, {
-        border: '2px solid #fff',
-        boxShadow: '0 0 0 3px rgba(255,255,255,0.12)',
+        border: '2px dashed #fff',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        boxShadow: '0 0 0 1px rgba(0,0,0,0.7)',
       })
       banner.style.borderBottomColor = 'rgba(255,255,255,0.15)'
       banner.innerHTML = `
@@ -77,8 +78,9 @@ function activatePicker() {
       `
     } else {
       Object.assign(highlight.style, {
-        border: '2px solid #60a5fa',
-        boxShadow: '0 0 0 3px rgba(96,165,250,0.15)',
+        border: '2px solid #fff',
+        backgroundColor: 'transparent',
+        boxShadow: '0 0 0 1px rgba(0,0,0,0.7)',
       })
       banner.style.borderBottomColor = 'rgba(96,165,250,0.25)'
       setBannerNormal()

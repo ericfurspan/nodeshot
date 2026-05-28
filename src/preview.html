@@ -69,7 +69,7 @@
       outline: none;
       transition: border-color 0.15s;
     }
-    #filename:focus { border-color: #3b82f6; }
+    #filename:focus { border-color: #fff; }
     #filename::placeholder { color: #3a3a3a; }
 
     /* Action buttons */
@@ -109,11 +109,11 @@
     .btn-save:active:not(:disabled) { opacity: 0.8; }
     .btn-save:disabled { opacity: 0.28; cursor: not-allowed; }
 
-    #btn-png { background: #3b82f6; color: #fff; }
-    #btn-png:hover:not(:disabled) { background: #2563eb; }
+    #btn-png { background: #fff; color: #111; }
+    #btn-png:hover:not(:disabled) { background: #e5e5e5; }
 
-    #btn-pdf { background: #fff; color: #111; }
-    #btn-pdf:hover:not(:disabled) { background: #e8e8e8; }
+    #btn-pdf { background: transparent; color: #e5e5e5; border: 1px solid #3a3a3a; }
+    #btn-pdf:hover:not(:disabled) { background: #1c1c1c; border-color: #555; }
 
     /* Status */
     #status {

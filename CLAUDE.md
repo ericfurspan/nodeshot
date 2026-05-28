@@ -2,6 +2,10 @@
 
 Chrome extension (Manifest V3) that lets users activate an element picker on any page, capture a DOM element as an image, refine with crop controls in a preview tab, and save as PNG or PDF.
 
+## Design
+
+Follow shadcn/ui design conventions throughout. Black and white palette only — no color accents. High contrast. Clean, large icons (outlined, not filled). Tight spacing, no decorative elements, no gradients, no drop shadows. UI should feel minimal and deliberate, like a tool worth shipping. When in doubt, do less.
+
 ## Commands
 
 ```bash
