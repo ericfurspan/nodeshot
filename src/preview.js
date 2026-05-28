@@ -17,8 +17,11 @@ let cropController = null
 async function init() {
   const params = new URLSearchParams(location.hash.slice(1))
   const key = params.get('key')
-  if (!key) {
-    showInitError('No capture key found in URL.')
+  // Validate before using as a chrome.storage key. Only allow safe characters
+  // (alphanumeric, hyphens, underscores). Actual keys are UUIDs so anything
+  // else is malformed; reject early rather than making a pointless storage call.
+  if (!key || !/^[\w-]+$/.test(key)) {
+    showInitError('No valid capture key found in URL.')
     return
   }
 
