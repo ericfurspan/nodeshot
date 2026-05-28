@@ -30,8 +30,8 @@ describe('content: picker activation', () => {
     expect(document.getElementById('nodeshot-overlay')).not.toBeNull()
   })
 
-  it('creates highlight element with pointer-events none', () => {
-    const el = document.getElementById('nodeshot-highlight')
+  it('creates reticle element with pointer-events none', () => {
+    const el = document.getElementById('nodeshot-reticle')
     expect(el).not.toBeNull()
     expect(el.style.pointerEvents).toBe('none')
   })
@@ -53,7 +53,7 @@ describe('content: picker activation', () => {
   it('reactivates picker when activate message is received', async () => {
     // Simulate capture cleanup — remove picker elements
     document.getElementById('nodeshot-overlay')?.remove()
-    document.getElementById('nodeshot-highlight')?.remove()
+    document.getElementById('nodeshot-reticle')?.remove()
     document.getElementById('nodeshot-banner')?.remove()
 
     // Grab the message listener registered in beforeEach
@@ -73,7 +73,7 @@ describe('content: element detection', () => {
     await import('../src/content.js')
   })
 
-  it('updates highlight position on mousemove over a page element', () => {
+  it('updates reticle position on mousemove over a page element', () => {
     const target = document.createElement('div')
     target.id = 'page-target'
     document.body.appendChild(target)
@@ -86,21 +86,21 @@ describe('content: element detection', () => {
 
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 30 }))
 
-    const highlight = document.getElementById('nodeshot-highlight')
-    expect(highlight.style.display).toBe('block')
-    expect(highlight.style.top).toBe('10px')
-    expect(highlight.style.left).toBe('20px')
-    expect(highlight.style.width).toBe('150px')
-    expect(highlight.style.height).toBe('60px')
+    const reticle = document.getElementById('nodeshot-reticle')
+    expect(reticle.style.display).toBe('block')
+    expect(reticle.style.top).toBe('10px')
+    expect(reticle.style.left).toBe('20px')
+    expect(reticle.style.width).toBe('150px')
+    expect(reticle.style.height).toBe('60px')
   })
 
-  it('hides highlight when hovering overlay itself', () => {
+  it('hides reticle when hovering overlay itself', () => {
     const overlay = document.getElementById('nodeshot-overlay')
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay])
 
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 0, clientY: 0 }))
 
-    expect(document.getElementById('nodeshot-highlight').style.display).toBe('none')
+    expect(document.getElementById('nodeshot-reticle').style.display).toBe('none')
   })
 })
 
@@ -116,7 +116,7 @@ describe('content: Escape cancellation', () => {
   it('removes all picker elements on Escape', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(document.getElementById('nodeshot-overlay')).toBeNull()
-    expect(document.getElementById('nodeshot-highlight')).toBeNull()
+    expect(document.getElementById('nodeshot-reticle')).toBeNull()
     expect(document.getElementById('nodeshot-banner')).toBeNull()
   })
 
@@ -142,7 +142,7 @@ describe('content: full-render capture (click)', () => {
     await import('../src/content.js')
   })
 
-  it('stores data URL and sends openPreview on click', async () => {
+  it('shows action dialog on element click, then captures and opens preview on Crop', async () => {
     const target = document.createElement('div')
     document.body.appendChild(target)
 
@@ -152,12 +152,16 @@ describe('content: full-render capture (click)', () => {
       { top: 0, left: 0, width: 100, height: 100 },
     )
 
-    // Hover to set currentTarget
+    // Hover to set currentTarget, then click to show dialog
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
-    // Click without shift
     overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50, shiftKey: false }))
 
-    // Wait for html2canvas promise
+    // Dialog should now be present
+    expect(document.getElementById('nodeshot-dialog')).not.toBeNull()
+    expect(document.getElementById('ns-btn-crop')).not.toBeNull()
+
+    // Click Crop to trigger capture
+    document.getElementById('ns-btn-crop').click()
     await new Promise((r) => setTimeout(r, 0))
 
     expect(mockHtml2canvas).toHaveBeenCalledWith(target, expect.objectContaining({ useCORS: true }))
@@ -199,7 +203,7 @@ describe('content: Shift-to-lock', () => {
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, other])
     vi.spyOn(other, 'getBoundingClientRect').mockReturnValue({ top: 200, left: 200, width: 50, height: 50 })
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 250 }))
-    const highlight = document.getElementById('nodeshot-highlight')
+    const highlight = document.getElementById('nodeshot-reticle')
     // Position unchanged — still the original frozen target
     expect(highlight.style.top).toBe('10px')
     expect(highlight.style.left).toBe('20px')
@@ -216,7 +220,7 @@ describe('content: Shift-to-lock', () => {
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, fresh])
     vi.spyOn(fresh, 'getBoundingClientRect').mockReturnValue({ top: 99, left: 99, width: 50, height: 50 })
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 100, clientY: 100 }))
-    expect(document.getElementById('nodeshot-highlight').style.top).toBe('99px')
+    expect(document.getElementById('nodeshot-reticle').style.top).toBe('99px')
   })
 
   it('resumes normal hover after Shift is released', () => {
@@ -227,18 +231,21 @@ describe('content: Shift-to-lock', () => {
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, other])
     vi.spyOn(other, 'getBoundingClientRect').mockReturnValue({ top: 300, left: 300, width: 80, height: 40 })
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 300 }))
-    expect(document.getElementById('nodeshot-highlight').style.top).toBe('300px')
+    expect(document.getElementById('nodeshot-reticle').style.top).toBe('300px')
   })
 
-  it('captures the frozen element (not the hovered one) when clicked while Shift is held', async () => {
+  it('captures the frozen element (not the hovered one) when dialog crop is clicked while Shift is held', async () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
     // Mouse moves to a different element while frozen
     const other = document.createElement('div')
     document.body.appendChild(other)
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, other])
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 250 }))
-    // Click — should capture original (frozen) target, not other
+    // Click — shows action dialog with the frozen (original) target
     overlay.dispatchEvent(new MouseEvent('click', { clientX: 250, clientY: 250, shiftKey: true }))
+    expect(document.getElementById('nodeshot-dialog')).not.toBeNull()
+    // Crop should capture original frozen target, not other
+    document.getElementById('ns-btn-crop').click()
     await new Promise((r) => setTimeout(r, 0))
     expect(mockH2c).toHaveBeenCalledWith(target, expect.any(Object))
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
@@ -282,6 +289,8 @@ describe('content: capture error handling', () => {
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 0, left: 0, width: 100, height: 100 })
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
     overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }))
+    // Click shows the action dialog; trigger capture via Crop
+    document.getElementById('ns-btn-crop').click()
 
     await new Promise((r) => setTimeout(r, 0))
   }
