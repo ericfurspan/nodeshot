@@ -162,7 +162,7 @@ describe('content: full-render capture (click)', () => {
 
     expect(mockHtml2canvas).toHaveBeenCalledWith(target, expect.objectContaining({ useCORS: true }))
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      'test-uuid-1234': 'data:image/png;base64,fake',
+      'test-uuid-1234': { dataUrl: 'data:image/png;base64,fake', title: expect.any(String) },
     })
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
       action: 'openPreview',

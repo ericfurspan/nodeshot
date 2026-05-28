@@ -70,7 +70,7 @@ describe('preview: image loading', () => {
     global.chrome = {
       storage: {
         local: {
-          get: vi.fn().mockResolvedValue({ 'test-key-abc': fakeDataUrl }),
+          get: vi.fn().mockResolvedValue({ 'test-key-abc': { dataUrl: fakeDataUrl, title: 'Test Page Title' } }),
           remove: vi.fn().mockResolvedValue(undefined),
         },
       },
@@ -105,8 +105,8 @@ describe('preview: image loading', () => {
     expect(document.getElementById('btn-pdf').disabled).toBe(false)
   })
 
-  it('pre-fills filename with nodeshot- timestamp pattern', () => {
-    expect(document.getElementById('filename').value).toMatch(/^nodeshot-\d+$/)
+  it('pre-fills filename from sanitized page title', () => {
+    expect(document.getElementById('filename').value).toBe('test-page-title')
   })
 })
 
@@ -122,7 +122,7 @@ describe('CropController: initialises to full image size', () => {
     global.chrome = {
       storage: {
         local: {
-          get: vi.fn().mockResolvedValue({ 'cc-key': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=' }),
+          get: vi.fn().mockResolvedValue({ 'cc-key': { dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=', title: '' } }),
           remove: vi.fn().mockResolvedValue(undefined),
         },
       },
@@ -292,7 +292,7 @@ describe('preview: save error handling', () => {
     global.chrome = {
       storage: {
         local: {
-          get: vi.fn().mockResolvedValue({ [key]: fakeDataUrl }),
+          get: vi.fn().mockResolvedValue({ [key]: { dataUrl: fakeDataUrl, title: '' } }),
           remove: vi.fn().mockResolvedValue(undefined),
         },
       },
@@ -345,7 +345,7 @@ describe('preview: Save PNG', () => {
     global.chrome = {
       storage: {
         local: {
-          get: vi.fn().mockResolvedValue({ 'png-test': fakeDataUrl }),
+          get: vi.fn().mockResolvedValue({ 'png-test': { dataUrl: fakeDataUrl, title: '' } }),
           remove: vi.fn().mockResolvedValue(undefined),
         },
       },
@@ -383,7 +383,7 @@ describe('preview: Save PDF', () => {
     global.chrome = {
       storage: {
         local: {
-          get: vi.fn().mockResolvedValue({ 'pdf-test': fakeDataUrl }),
+          get: vi.fn().mockResolvedValue({ 'pdf-test': { dataUrl: fakeDataUrl, title: '' } }),
           remove: vi.fn().mockResolvedValue(undefined),
         },
       },

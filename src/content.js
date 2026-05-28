@@ -136,7 +136,7 @@ function activatePicker() {
     try {
       const canvas = await html2canvas(target, { useCORS: true, logging: false })
       const dataUrl = canvas.toDataURL('image/png')
-      await chrome.storage.local.set({ [key]: dataUrl })
+      await chrome.storage.local.set({ [key]: { dataUrl, title: document.title } })
       try {
         chrome.runtime.sendMessage({ action: 'openPreview', key })
       } catch {

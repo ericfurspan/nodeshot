@@ -1,6 +1,17 @@
 // src/preview.js
 import { PDFDocument } from 'pdf-lib'
 
+function sanitizeTitle(title) {
+  return (title || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60) || 'nodeshot'
+}
+
 let cropController = null
 
 async function init() {
@@ -13,13 +24,14 @@ async function init() {
 
   try {
     const result = await chrome.storage.local.get(key)
-    const dataUrl = result[key]
-    if (!dataUrl) {
+    const stored = result[key]
+    if (!stored) {
       showInitError('Capture data not found — it may have already been used.')
       return
     }
     await chrome.storage.local.remove(key)
 
+    const { dataUrl, title } = stored
     const image = new Image()
     image.src = dataUrl
     await new Promise((resolve, reject) => {
@@ -36,8 +48,7 @@ async function init() {
 
     const filenameEl = document.getElementById('filename')
     if (!filenameEl.value) {
-      const ts = Date.now()
-      filenameEl.value = `nodeshot-${ts}`
+      filenameEl.value = sanitizeTitle(title)
     }
 
     document.getElementById('btn-png').addEventListener('click', () => savePng(image))
