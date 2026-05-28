@@ -134,7 +134,14 @@ function activatePicker() {
     // the heavy work is already done.
     await new Promise((resolve) => setTimeout(resolve, 0))
     try {
-      const canvas = await html2canvas(target, { useCORS: true, logging: false })
+      const canvas = await html2canvas(target, {
+        useCORS: true,
+        logging: false,
+        scrollX: window.pageXOffset,
+        scrollY: window.pageYOffset,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
+      })
       const dataUrl = canvas.toDataURL('image/png')
       await chrome.storage.local.set({ [key]: { dataUrl, title: document.title } })
       try {
