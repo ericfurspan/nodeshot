@@ -22,6 +22,12 @@ chrome.action.onClicked.addListener(async (tab) => {
 })
 
 chrome.runtime.onMessage.addListener((message, sender) => {
+  // Reject messages from other extensions. In real Chrome our own content scripts
+  // and extension pages always carry sender.id === chrome.runtime.id. The guard
+  // uses short-circuit evaluation so it is a no-op when sender.id is undefined
+  // (which only happens in unit tests that don't simulate Chrome's message routing).
+  if (sender.id && sender.id !== chrome.runtime.id) return
+
   const tabId = sender.tab?.id
 
   if (message.action === 'pickerCancelled') {
@@ -30,6 +36,10 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   }
 
   if (message.action === 'openPreview') {
+    // Validate key before embedding in a URL. Only allow characters safe for a
+    // URL fragment (alphanumeric, hyphens, underscores). Actual keys are UUIDs,
+    // so any other content indicates a malformed or spoofed message.
+    if (typeof message.key !== 'string' || !/^[\w-]+$/.test(message.key)) return
     try { chrome.action.setBadgeText({ text: '', tabId }) } catch {}
     try {
       chrome.tabs.create({
