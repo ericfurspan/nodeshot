@@ -30,8 +30,8 @@ describe('content: picker activation', () => {
     expect(document.getElementById('nodeshot-overlay')).not.toBeNull()
   })
 
-  it('creates reticle element with pointer-events none', () => {
-    const el = document.getElementById('nodeshot-reticle')
+  it('creates highlight element with pointer-events none', () => {
+    const el = document.getElementById('nodeshot-highlight')
     expect(el).not.toBeNull()
     expect(el.style.pointerEvents).toBe('none')
   })
@@ -53,6 +53,7 @@ describe('content: picker activation', () => {
   it('reactivates picker when activate message is received', async () => {
     // Simulate capture cleanup — remove picker elements
     document.getElementById('nodeshot-overlay')?.remove()
+    document.getElementById('nodeshot-highlight')?.remove()
     document.getElementById('nodeshot-reticle')?.remove()
     document.getElementById('nodeshot-banner')?.remove()
 
@@ -86,12 +87,12 @@ describe('content: element detection', () => {
 
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 30 }))
 
-    const reticle = document.getElementById('nodeshot-reticle')
-    expect(reticle.style.display).toBe('block')
-    expect(reticle.style.top).toBe('10px')
-    expect(reticle.style.left).toBe('20px')
-    expect(reticle.style.width).toBe('150px')
-    expect(reticle.style.height).toBe('60px')
+    const highlight = document.getElementById('nodeshot-highlight')
+    expect(highlight.style.display).toBe('block')
+    expect(highlight.style.top).toBe('10px')
+    expect(highlight.style.left).toBe('20px')
+    expect(highlight.style.width).toBe('150px')
+    expect(highlight.style.height).toBe('60px')
   })
 
   it('hides reticle when hovering overlay itself', () => {
@@ -100,7 +101,7 @@ describe('content: element detection', () => {
 
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 0, clientY: 0 }))
 
-    expect(document.getElementById('nodeshot-reticle').style.display).toBe('none')
+    expect(document.getElementById('nodeshot-highlight').style.display).toBe('none')
   })
 })
 
@@ -203,10 +204,10 @@ describe('content: Shift-to-lock', () => {
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, other])
     vi.spyOn(other, 'getBoundingClientRect').mockReturnValue({ top: 200, left: 200, width: 50, height: 50 })
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 250 }))
-    const highlight = document.getElementById('nodeshot-reticle')
+    const reticle = document.getElementById('nodeshot-reticle')
     // Position unchanged — still the original frozen target
-    expect(highlight.style.top).toBe('10px')
-    expect(highlight.style.left).toBe('20px')
+    expect(reticle.style.top).toBe('10px')
+    expect(reticle.style.left).toBe('20px')
   })
 
   it('does not freeze when Shift is pressed with no hovered target', () => {
@@ -220,7 +221,7 @@ describe('content: Shift-to-lock', () => {
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, fresh])
     vi.spyOn(fresh, 'getBoundingClientRect').mockReturnValue({ top: 99, left: 99, width: 50, height: 50 })
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 100, clientY: 100 }))
-    expect(document.getElementById('nodeshot-reticle').style.top).toBe('99px')
+    expect(document.getElementById('nodeshot-highlight').style.top).toBe('99px')
   })
 
   it('resumes normal hover after Shift is released', () => {
@@ -231,7 +232,7 @@ describe('content: Shift-to-lock', () => {
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, other])
     vi.spyOn(other, 'getBoundingClientRect').mockReturnValue({ top: 300, left: 300, width: 80, height: 40 })
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 300 }))
-    expect(document.getElementById('nodeshot-reticle').style.top).toBe('300px')
+    expect(document.getElementById('nodeshot-highlight').style.top).toBe('300px')
   })
 
   it('captures the frozen element (not the hovered one) when dialog crop is clicked while Shift is held', async () => {
