@@ -145,7 +145,7 @@ function activatePicker() {
     borderBottom: '1px solid rgba(255,255,255,0.1)',
     letterSpacing: '0.01em',
   })
-  setBannerNormal()
+  renderBanner(false)
 
   document.body.appendChild(overlay)
   document.body.appendChild(highlight)
@@ -182,22 +182,46 @@ function activatePicker() {
       reticle.style.borderRadius = getComputedStyle(frozenTarget).borderRadius
       positionReticle(frozenTarget.getBoundingClientRect())
       banner.style.borderBottomColor = 'rgba(255,255,255,0.15)'
-      banner.innerHTML = `
-        <style>@keyframes ns-blink{0%,100%{opacity:1}50%{opacity:.3}}</style>
-        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#fff;margin-right:9px;vertical-align:middle;"></span>Node locked — click to capture · release <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Shift</span> to resume
-      `
+      renderBanner(true)
     } else {
       reticle.style.display = 'none'
       banner.style.borderBottomColor = 'rgba(255,255,255,0.1)'
-      setBannerNormal()
+      renderBanner(false)
     }
   }
 
-  function setBannerNormal() {
-    banner.innerHTML = `
-      <style>@keyframes ns-blink{0%,100%{opacity:1}50%{opacity:.3}}</style>
-      <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#fff;margin-right:9px;vertical-align:middle;animation:ns-blink 2s ease-in-out infinite;"></span>NodeShot — hover to select, click to capture · <span style="font-size:11px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);padding:1px 6px;border-radius:3px;">Esc</span> to cancel
-    `
+  // Builds the banner content with DOM APIs (no innerHTML). The unlocked-state dot
+  // pulses via the Web Animations API rather than an injected @keyframes stylesheet.
+  function renderBanner(locked) {
+    banner.replaceChildren()
+
+    const dot = document.createElement('span')
+    Object.assign(dot.style, {
+      display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
+      background: '#fff', marginRight: '9px', verticalAlign: 'middle',
+    })
+    if (!locked && typeof dot.animate === 'function') {
+      dot.animate(
+        [{ opacity: 1 }, { opacity: 0.3 }, { opacity: 1 }],
+        { duration: 2000, iterations: Infinity, easing: 'ease-in-out' },
+      )
+    }
+
+    const kbd = document.createElement('span')
+    Object.assign(kbd.style, {
+      fontSize: '11px', background: 'rgba(255,255,255,0.1)',
+      border: '1px solid rgba(255,255,255,0.18)', padding: '1px 6px', borderRadius: '3px',
+    })
+    kbd.textContent = locked ? 'Shift' : 'Esc'
+
+    banner.append(
+      dot,
+      locked
+        ? 'Node locked — click to capture · release '
+        : 'NodeShot — hover to select, click to capture · ',
+      kbd,
+      locked ? ' to resume' : ' to cancel',
+    )
   }
 
   // ── Capture helper ────────────────────────────────────────────────────────
@@ -433,31 +457,31 @@ function activatePicker() {
       {
         id: 'ns-btn-copy',
         label: 'COPY',
-        icon: `<svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="5" y="5" width="8" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M3 11V3a1 1 0 011-1h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>`,
+        icon: [
+          ['rect', { x: 5, y: 5, width: 8, height: 9, rx: 1, stroke: 'currentColor', 'stroke-width': 1.5 }],
+          ['path', { d: 'M3 11V3a1 1 0 011-1h6', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }],
+        ],
         handler: () => handleCopy(target),
       },
       {
         id: 'ns-btn-download',
         label: 'PNG',
-        icon: `<svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M8 2v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>`,
+        icon: [
+          ['path', { d: 'M8 2v7', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
+          ['path', { d: 'M5 7l3 3 3-3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }],
+          ['path', { d: 'M3 13h10', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
+        ],
         handler: () => handleDownload(target),
       },
       {
         id: 'ns-btn-crop',
         label: 'CROP',
-        icon: `<svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4 1v3M1 4h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M12 1v3M9 4h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M4 15v-3M1 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M12 15v-3M9 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>`,
+        icon: [
+          ['path', { d: 'M4 1v3M1 4h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
+          ['path', { d: 'M12 1v3M9 4h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
+          ['path', { d: 'M4 15v-3M1 12h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
+          ['path', { d: 'M12 15v-3M9 12h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
+        ],
         handler: () => handleCrop(target),
       },
     ]
@@ -483,8 +507,9 @@ function activatePicker() {
         lineHeight: '1',
         fontFamily: 'inherit',
       })
-      btn.innerHTML = icon
-      btn.appendChild(Object.assign(document.createElement('span'), { textContent: label }))
+      const labelEl = document.createElement('span')
+      labelEl.textContent = label
+      btn.append(makeSvgIcon(icon), labelEl)
       btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(255,255,255,0.08)' })
       btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent' })
       btn.addEventListener('click', handler)
@@ -602,6 +627,23 @@ function activatePicker() {
   }
 }
 
+// Builds an 18×18 SVG icon from a spec of [tagName, attributes] entries, using
+// createElementNS (no innerHTML). Markup is fully static — defined in the call site.
+const SVG_NS = 'http://www.w3.org/2000/svg'
+function makeSvgIcon(nodes) {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('width', '18')
+  svg.setAttribute('height', '18')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('fill', 'none')
+  for (const [tag, attrs] of nodes) {
+    const node = document.createElementNS(SVG_NS, tag)
+    for (const k in attrs) node.setAttribute(k, attrs[k])
+    svg.appendChild(node)
+  }
+  return svg
+}
+
 function showSpinner() {
   const el = document.createElement('div')
   el.id = 'nodeshot-spinner'
@@ -618,17 +660,24 @@ function showSpinner() {
     fontSize: '16px',
     fontFamily: 'system-ui, sans-serif',
   })
-  el.innerHTML = `
-    <div style="text-align:center">
-      <div style="
-        width:32px;height:32px;border:3px solid rgba(255,255,255,0.3);
-        border-top-color:#fff;border-radius:50%;animation:ns-spin 0.8s linear infinite;
-        margin:0 auto 12px;
-      "></div>
-      <style>@keyframes ns-spin{to{transform:rotate(360deg)}}</style>
-      Capturing…
-    </div>
-  `
+  const box = document.createElement('div')
+  box.style.textAlign = 'center'
+
+  const ring = document.createElement('div')
+  Object.assign(ring.style, {
+    width: '32px', height: '32px',
+    border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#fff',
+    borderRadius: '50%', margin: '0 auto 12px',
+  })
+  if (typeof ring.animate === 'function') {
+    ring.animate(
+      [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
+      { duration: 800, iterations: Infinity, easing: 'linear' },
+    )
+  }
+
+  box.append(ring, 'Capturing…')
+  el.appendChild(box)
   document.body.appendChild(el)
 }
 
