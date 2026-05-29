@@ -1,69 +1,30 @@
 // src/content.js
 import html2canvas from 'html2canvas'
+import { UNSUPPORTED_COLOR_FN, replaceUnsupportedColors } from './color-utils.js'
 
 // Attribute set on every element we inject so cleanup() can distinguish our nodes
 // from any page element that happens to share one of our IDs (DOM clobbering guard).
 const NS = 'data-nodeshot'
 
-// CSS Color 4 functions not recognised by html2canvas (only rgb/rgba/hsl/hsla are).
-const UNSUPPORTED_COLOR_FN = /\b(?:color|oklch|oklab|lab|lch|hwb|color-mix|light-dark)\s*\(/i
-
-// Colour properties html2canvas parses per-element (longhand only).
+// Every colour-bearing property html2canvas parses per-element (longhands only —
+// that's what getComputedStyle exposes). background-image, box-shadow and
+// text-shadow are compound values that can embed colour functions in gradient
+// stops / shadow colours, so they're included and handled with in-place token
+// replacement rather than being dropped.
 const COLOR_PROPS = [
-  'color', 'background-color',
+  'color', 'background-color', 'background-image',
   'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
   'outline-color', 'text-decoration-color', 'caret-color',
+  '-webkit-text-stroke-color', 'box-shadow', 'text-shadow',
   'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color',
 ]
+// Properties whose value is a single colour: when a value can't be resolved at all
+// we fall back to a visible default for foreground colours, transparent otherwise.
 const FOREGROUND_COLOR_PROPS = new Set([
   'color', 'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'caret-color',
 ])
-
-// Resolves a CSS colour value that html2canvas can't parse (oklch(), color(),
-// oklab(), lab(), lch(), hwb(), color-mix(), …) to the concrete rgb/rgba the
-// browser actually renders, via a 1×1 canvas read-back. Modern Chrome's
-// getComputedStyle returns these functions verbatim rather than resolving them to
-// rgb, which is what makes html2canvas throw. Painting the value to a canvas and
-// reading the pixel back gives the exact sRGB bytes the page displays.
-// Returns null when the value can't be resolved (canvas can't parse it either),
-// so the caller can fall back to a sensible default for that property.
-let _colorCtx
-function resolveColorToRgb(value) {
-  if (_colorCtx === undefined) {
-    const c = document.createElement('canvas')
-    c.width = c.height = 1
-    _colorCtx = c.getContext('2d', { willReadFrequently: true }) || null
-  }
-  const ctx = _colorCtx
-  if (!ctx) return null
-
-  // Assigning an invalid value to fillStyle is a no-op (the previous value sticks),
-  // so probe parse-ability with two different sentinels. A function-syntax colour
-  // (oklch/color/…) serialises back as a function string, never equal to the hex
-  // sentinel, so it passes the first check immediately; only legacy values that
-  // serialise to hex need the second probe. If neither sentinel changes, the value
-  // was rejected by the canvas and is unresolvable.
-  ctx.fillStyle = '#000000'
-  ctx.fillStyle = value
-  if (ctx.fillStyle === '#000000') {
-    ctx.fillStyle = '#ffffff'
-    ctx.fillStyle = value
-    if (ctx.fillStyle === '#ffffff') return null
-  }
-
-  ctx.clearRect(0, 0, 1, 1)
-  ctx.fillStyle = value
-  ctx.fillRect(0, 0, 1, 1)
-  let r, g, b, a
-  try {
-    ;[r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
-  } catch {
-    return null // getImageData unavailable (shouldn't happen for a same-origin canvas)
-  }
-  return a === 255
-    ? `rgb(${r}, ${g}, ${b})`
-    : `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`
-}
+// Compound values fall back to 'none' (drop the gradient/shadow) when unresolvable.
+const COMPOUND_COLOR_PROPS = new Set(['background-image', 'box-shadow', 'text-shadow'])
 
 if (!window.__nodeShotInjected) {
   window.__nodeShotInjected = true
@@ -289,31 +250,32 @@ function activatePicker() {
           if (!isNaN(ch) && ch < 0) rect.style.setProperty('height', '0px', 'important')
         })
 
-        // Guard 2 — CSS Color 4 functions (oklch, color(), etc.).
-        // html2canvas only knows rgb/rgba/hsl/hsla; anything else throws and aborts
-        // the entire capture. Resolve each unsupported value to the rgb/rgba the
-        // browser actually renders so the screenshot keeps its real colours, and
-        // only fall back to a placeholder when a value genuinely can't be resolved.
+        // Guard 2 — CSS Color 4 functions (oklch, color(), oklab, lab, lch, hwb,
+        // color-mix, …). html2canvas only knows rgb/rgba/hsl/hsla; anything else
+        // throws and aborts the whole capture. Modern Chrome's getComputedStyle
+        // returns these functions verbatim, including inside compound values like
+        // gradient stops and shadows. For every colour-bearing property we rewrite
+        // each unsupported function — in place, so gradients and shadows survive —
+        // to the rgb the browser renders, and only fall back when a token genuinely
+        // can't be resolved.
         doc.querySelectorAll('*').forEach(el => {
           const cs = view.getComputedStyle(el)
           for (const prop of COLOR_PROPS) {
             const val = cs.getPropertyValue(prop)
-            if (val && UNSUPPORTED_COLOR_FN.test(val)) {
-              const resolved = resolveColorToRgb(val)
+            if (!val || !UNSUPPORTED_COLOR_FN.test(val)) continue
+            const replaced = replaceUnsupportedColors(val)
+            if (replaced && !UNSUPPORTED_COLOR_FN.test(replaced)) {
+              // Fully resolved — keep the real colours.
+              el.style.setProperty(prop, replaced, 'important')
+            } else {
+              // A token couldn't be resolved; fall back so html2canvas never sees
+              // the unsupported function.
               el.style.setProperty(
                 prop,
-                resolved ?? (FOREGROUND_COLOR_PROPS.has(prop) ? '#000000' : 'transparent'),
+                COMPOUND_COLOR_PROPS.has(prop) ? 'none'
+                  : FOREGROUND_COLOR_PROPS.has(prop) ? '#000000' : 'transparent',
                 'important',
               )
-            }
-          }
-          // box-shadow and text-shadow embed a colour inside a compound value that
-          // can't be resolved with a single read-back. They're decorative, so drop
-          // them rather than risk a wrong colour or a parse throw.
-          for (const prop of ['box-shadow', 'text-shadow']) {
-            const val = cs.getPropertyValue(prop)
-            if (val && val !== 'none' && UNSUPPORTED_COLOR_FN.test(val)) {
-              el.style.setProperty(prop, 'none', 'important')
             }
           }
         })
