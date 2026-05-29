@@ -39,13 +39,21 @@ re-activate after a capture.
 NodeShot renders the page's own HTML and CSS into an image. A few things follow
 from how that works and from browser security rules — these are expected, not bugs:
 
-- **Transparent backgrounds on "see-through" elements.** NodeShot captures exactly
-  the element you pick. If that element has no background of its own — for example a
-  navigation bar or container whose visible colour actually comes from the page
-  behind it — the capture will have a transparent (empty) background. The
-  background you see on screen belongs to a parent element and isn't part of the
-  element you selected. If you want the background, pick a parent element that has
-  one.
+- **See-through elements are captured over the page's real background.** NodeShot
+  captures exactly the element you pick. If that element has no background of its
+  own, or a semi-transparent one — for example a navigation bar, or a card with a
+  translucent fill whose colour really comes from the page behind it — NodeShot
+  composites it over the page's actual background colour (taken from the nearest
+  parent that has a solid one). This means a translucent dark card on a dark page
+  captures as dark, the way it looks on screen, rather than as a washed-out grey or
+  white box. If the whole page has no solid background anywhere, the capture falls
+  back to white.
+
+- **Frosted-glass (backdrop blur) effects can't be fully reproduced.** Some elements
+  use a "backdrop blur" that blurs whatever sits behind them (a frosted-glass look).
+  Because NodeShot captures a single element on its own, there's nothing behind it to
+  blur, so the blur itself can't be recreated. The element still captures with the
+  correct base colour and tone — only the blur of the content behind it is missing.
 
 - **Content inside cross-origin frames can't be captured.** If the element is, or
   sits inside, an embedded frame from another website (ads, embedded videos, some
