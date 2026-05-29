@@ -1,6 +1,10 @@
 // src/content.js
 import html2canvas from 'html2canvas'
-import { UNSUPPORTED_COLOR_FN, replaceUnsupportedColors } from './color-utils.js'
+import {
+  UNSUPPORTED_COLOR_FN,
+  replaceUnsupportedColors,
+  firstOpaqueBackgroundColor,
+} from './color-utils.js'
 
 // Attribute set on every element we inject so cleanup() can distinguish our nodes
 // from any page element that happens to share one of our IDs (DOM clobbering guard).
@@ -196,6 +200,23 @@ function activatePicker() {
 
   // ── Capture helper ────────────────────────────────────────────────────────
 
+  // Determines the backdrop to capture a node-scoped element against. html2canvas
+  // otherwise defaults to opaque WHITE, which makes a translucent element (e.g. a
+  // shadcn card with a semi-transparent fill, or any element with no background of
+  // its own) composite over white and render as a washed-out grey box. Instead we
+  // walk from the target up through its ancestors (and on to body/html) and use the
+  // first fully opaque background colour we find — the page's real backdrop — so
+  // translucent fills composite over the colour they actually sit on. Falls back to
+  // white when nothing opaque is found (e.g. a genuinely transparent page).
+  function resolveCaptureBackground(target) {
+    const view = target.ownerDocument.defaultView || window
+    const colors = []
+    for (let el = target; el; el = el.parentElement) {
+      colors.push(view.getComputedStyle(el).backgroundColor)
+    }
+    return firstOpaqueBackgroundColor(colors) ?? '#ffffff'
+  }
+
   function captureElement(target) {
     // Pre-flight: reject detached elements before paying the cost of html2canvas.
     // A fast-updating page can remove the selected node between click and capture.
@@ -222,6 +243,9 @@ function activatePicker() {
     return html2canvas(target, {
       useCORS: true,
       logging: false,
+      // Capture against the page's real background instead of html2canvas's default
+      // white, so translucent backgrounds keep their true tone (see helper above).
+      backgroundColor: resolveCaptureBackground(target),
       // Fail fast on slow/blocked resources instead of waiting the 15 s default.
       // Complex SPAs (e.g. Cloudflare-protected pages) can have CDN assets that
       // hang on CORS preflight for a long time before the browser gives up.

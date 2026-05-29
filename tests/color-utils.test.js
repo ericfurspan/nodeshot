@@ -4,6 +4,8 @@ import {
   UNSUPPORTED_COLOR_FN,
   COLOR_FN_NAMES,
   replaceUnsupportedColors,
+  isOpaqueColor,
+  firstOpaqueBackgroundColor,
 } from '../src/color-utils.js'
 
 // A deterministic stand-in for the canvas read-back resolver. Maps a few known
@@ -102,6 +104,63 @@ describe('replaceUnsupportedColors — compound / shorthand values', () => {
   it('does not match `lab` inside `oklab` or `color` inside `color-mix`', () => {
     // oklab resolves as one token; there is no stray lab() left behind.
     expect(replaceUnsupportedColors('oklab(0.6 0.1 0.1)', resolve)).toBe('rgb(150, 120, 90)')
+  })
+})
+
+describe('isOpaqueColor', () => {
+  it('treats rgb() (no alpha channel) as opaque', () => {
+    expect(isOpaqueColor('rgb(20, 20, 30)')).toBe(true)
+    expect(isOpaqueColor('rgb(0, 0, 0)')).toBe(true)
+  })
+
+  it('treats rgba() with alpha >= 1 as opaque', () => {
+    expect(isOpaqueColor('rgba(20, 20, 30, 1)')).toBe(true)
+  })
+
+  it('treats rgba() with alpha < 1 as not opaque', () => {
+    expect(isOpaqueColor('rgba(20, 20, 30, 0.5)')).toBe(false)
+    expect(isOpaqueColor('rgba(0, 0, 0, 0)')).toBe(false)
+  })
+
+  it('treats unparseable / empty values as not opaque', () => {
+    expect(isOpaqueColor('')).toBe(false)
+    expect(isOpaqueColor(null)).toBe(false)
+    expect(isOpaqueColor('transparent')).toBe(false)
+  })
+})
+
+describe('firstOpaqueBackgroundColor', () => {
+  // Fake resolver: identity for rgb/rgba (those are what getComputedStyle yields
+  // for background-color), null for anything it can't handle.
+  const resolve = (v) => (/^rgba?\(/i.test(v) ? v : null)
+
+  it('returns the first opaque colour, skipping translucent/transparent ancestors', () => {
+    // target translucent → wrapper transparent → body opaque dark
+    const colors = ['rgba(20, 20, 30, 0.5)', 'rgba(0, 0, 0, 0)', 'rgb(10, 10, 12)']
+    expect(firstOpaqueBackgroundColor(colors, resolve)).toBe('rgb(10, 10, 12)')
+  })
+
+  it('returns the target\'s own colour when it is already opaque', () => {
+    const colors = ['rgb(255, 255, 255)', 'rgb(10, 10, 12)']
+    expect(firstOpaqueBackgroundColor(colors, resolve)).toBe('rgb(255, 255, 255)')
+  })
+
+  it('returns null when every ancestor is transparent or translucent', () => {
+    const colors = ['rgba(0, 0, 0, 0)', 'rgba(20, 20, 30, 0.3)', 'rgba(0, 0, 0, 0)']
+    expect(firstOpaqueBackgroundColor(colors, resolve)).toBeNull()
+  })
+
+  it('skips entries the resolver can\'t handle and empty values', () => {
+    const colors = ['', 'not-a-color', 'rgb(7, 8, 9)']
+    expect(firstOpaqueBackgroundColor(colors, resolve)).toBe('rgb(7, 8, 9)')
+  })
+
+  it('resolves Color 4 ancestor backgrounds via the injected resolver', () => {
+    // A page whose body background is authored in oklch: the resolver converts it,
+    // and the result is used as the opaque backdrop.
+    const oklchResolve = (v) => (v === 'oklch(0.15 0 0)' ? 'rgb(10, 10, 12)' : resolve(v))
+    const colors = ['rgba(0, 0, 0, 0)', 'oklch(0.15 0 0)']
+    expect(firstOpaqueBackgroundColor(colors, oklchResolve)).toBe('rgb(10, 10, 12)')
   })
 })
 

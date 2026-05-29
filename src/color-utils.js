@@ -62,6 +62,33 @@ export function resolveColorToRgb(value) {
     : `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`
 }
 
+// True when a resolved colour string (rgb(...) / rgba(...)) is fully opaque.
+// rgb(...) has no alpha channel and is always opaque; rgba(...) is opaque only
+// when its alpha component is >= 1.
+export function isOpaqueColor(resolved) {
+  const m = /^rgba?\(([^)]*)\)/i.exec(resolved || '')
+  if (!m) return false
+  const parts = m[1].split(',')
+  if (parts.length < 4) return true // rgb() — no alpha channel
+  return parseFloat(parts[3]) >= 1
+}
+
+// Given an ordered list of raw computed background-color strings (typically the
+// capture target, then each ancestor, then body and html), returns the first one
+// that resolves to a fully opaque colour, as an rgb/rgba string html2canvas can
+// parse. Returns null when none are opaque (e.g. a fully translucent page), so the
+// caller can apply its own default backdrop.
+//
+// `resolve` is injectable for testing; defaults to the canvas read-back resolver.
+export function firstOpaqueBackgroundColor(rawColors, resolve = resolveColorToRgb) {
+  for (const raw of rawColors) {
+    if (!raw) continue
+    const resolved = resolve(raw)
+    if (resolved && isOpaqueColor(resolved)) return resolved
+  }
+  return null
+}
+
 // True when an unsupported colour function starts at index `i` in `value`
 // (the name is immediately followed, ignoring spaces, by an opening paren).
 function colorFnNameAt(value, i) {
