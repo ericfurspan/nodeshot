@@ -20,6 +20,8 @@ copy it to your clipboard, save it as a PNG, or crop it and export as PNG or PDF
 
 ## Install (unpacked)
 
+Requires Chrome 111 or newer.
+
 ```bash
 npm install
 npm run build
@@ -68,10 +70,10 @@ from how that works and from browser security rules — these are expected, not 
   capture never hangs.
 
 - **Modern colours are matched as closely as the screen shows them.** Pages built
-  with newer CSS colour formats (such as `oklch`) are converted to the equivalent
-  on-screen colour during capture. In rare cases where a colour can't be converted,
-  that single colour falls back to a neutral value and decorative shadows/gradients
-  may be dropped, but the rest of the capture is unaffected.
+  with newer CSS colour formats (such as `oklch`, `color()`, or `color-mix()`) are
+  converted to the equivalent on-screen colour during capture, including colours
+  inside gradients and shadows. In the rare case a colour can't be converted, that
+  one colour falls back to a neutral value; the rest of the capture is unaffected.
 
 - **Captures are an approximation of complex layouts.** Very elaborate CSS (certain
   filters, blend modes, or custom-element internals that hide their content) may not
@@ -86,13 +88,13 @@ from how that works and from browser security rules — these are expected, not 
 
 NodeShot requests only what it needs:
 
-- `activeTab`, `scripting` — inject the picker into the current tab when you click
-  the icon.
+- `activeTab`, `scripting` — inject the picker into the current tab, only when you
+  click the toolbar icon.
 - `storage` — hand the captured image to the crop/preview tab.
-- `tabs` — open the preview tab and manage the toolbar badge.
 
-It requests **no host permissions** and sends **no data off your device** — every
-capture happens locally in your browser.
+It requests **no host permissions** (so it never asks to "read and change your data
+on all websites") and sends **no data off your device** — every capture is processed
+locally in your browser and saved only where you choose.
 
 ## Development
 
