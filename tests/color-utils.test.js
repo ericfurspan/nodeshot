@@ -1,8 +1,8 @@
 // tests/color-utils.test.js
 import { describe, it, expect } from 'vitest'
 import {
-  UNSUPPORTED_COLOR_FN,
-  COLOR_FN_NAMES,
+  SUPPORTED_COLOR_FN,
+  hasUnsupportedColorFn,
   replaceUnsupportedColors,
   isOpaqueColor,
   firstOpaqueBackgroundColor,
@@ -25,30 +25,60 @@ const FAKE = {
 }
 const resolve = (v) => FAKE[v] ?? null
 
-describe('UNSUPPORTED_COLOR_FN regex', () => {
-  it('matches every CSS Color 4 function we handle', () => {
-    expect(UNSUPPORTED_COLOR_FN.test('oklch(0.7 0.15 200)')).toBe(true)
-    expect(UNSUPPORTED_COLOR_FN.test('oklab(0.6 0.1 0.1)')).toBe(true)
-    expect(UNSUPPORTED_COLOR_FN.test('lab(50% 40 59.5)')).toBe(true)
-    expect(UNSUPPORTED_COLOR_FN.test('lch(52.2% 72.2 50)')).toBe(true)
-    expect(UNSUPPORTED_COLOR_FN.test('hwb(194 0% 0%)')).toBe(true)
-    expect(UNSUPPORTED_COLOR_FN.test('color(display-p3 1 0 0)')).toBe(true)
-    expect(UNSUPPORTED_COLOR_FN.test('color-mix(in oklch, red, blue)')).toBe(true)
-    expect(UNSUPPORTED_COLOR_FN.test('light-dark(white, black)')).toBe(true)
+describe('hasUnsupportedColorFn (generic detection)', () => {
+  it('flags every CSS Color 4 function — by exclusion, not an allowlist', () => {
+    expect(hasUnsupportedColorFn('oklch(0.7 0.15 200)')).toBe(true)
+    expect(hasUnsupportedColorFn('oklab(0.6 0.1 0.1)')).toBe(true)
+    expect(hasUnsupportedColorFn('lab(50% 40 59.5)')).toBe(true)
+    expect(hasUnsupportedColorFn('lch(52.2% 72.2 50)')).toBe(true)
+    expect(hasUnsupportedColorFn('hwb(194 0% 0%)')).toBe(true)
+    expect(hasUnsupportedColorFn('color(display-p3 1 0 0)')).toBe(true)
+    expect(hasUnsupportedColorFn('color-mix(in oklch, red, blue)')).toBe(true)
+    expect(hasUnsupportedColorFn('light-dark(white, black)')).toBe(true)
   })
 
-  it('does not match the colours html2canvas already supports', () => {
-    expect(UNSUPPORTED_COLOR_FN.test('rgb(1, 2, 3)')).toBe(false)
-    expect(UNSUPPORTED_COLOR_FN.test('rgba(1, 2, 3, 0.5)')).toBe(false)
-    expect(UNSUPPORTED_COLOR_FN.test('hsl(200, 50%, 50%)')).toBe(false)
-    expect(UNSUPPORTED_COLOR_FN.test('hsla(200, 50%, 50%, 0.5)')).toBe(false)
-    expect(UNSUPPORTED_COLOR_FN.test('#aabbcc')).toBe(false)
-    expect(UNSUPPORTED_COLOR_FN.test('transparent')).toBe(false)
-    expect(UNSUPPORTED_COLOR_FN.test('none')).toBe(false)
+  it('flags a brand-new / unknown colour function with no code change', () => {
+    // The whole point of the generalization: a function nobody enumerated.
+    expect(hasUnsupportedColorFn('superduper(1 2 3)')).toBe(true)
+    expect(hasUnsupportedColorFn('oklchv2(0.7 0.15 200 / 0.5)')).toBe(true)
   })
 
-  it('orders color-mix before color so the scanner prefers the longer name', () => {
-    expect(COLOR_FN_NAMES.indexOf('color-mix')).toBeLessThan(COLOR_FN_NAMES.indexOf('color'))
+  it('does not flag the colours html2canvas already supports', () => {
+    expect(hasUnsupportedColorFn('rgb(1, 2, 3)')).toBe(false)
+    expect(hasUnsupportedColorFn('rgba(1, 2, 3, 0.5)')).toBe(false)
+    expect(hasUnsupportedColorFn('hsl(200, 50%, 50%)')).toBe(false)
+    expect(hasUnsupportedColorFn('hsla(200, 50%, 50%, 0.5)')).toBe(false)
+    expect(hasUnsupportedColorFn('#aabbcc')).toBe(false)
+    expect(hasUnsupportedColorFn('transparent')).toBe(false)
+    expect(hasUnsupportedColorFn('none')).toBe(false)
+    expect(hasUnsupportedColorFn('')).toBe(false)
+  })
+
+  it('SUPPORTED_COLOR_FN is exactly html2canvas\'s parser set', () => {
+    expect([...SUPPORTED_COLOR_FN].sort()).toEqual(['hsl', 'hsla', 'rgb', 'rgba'])
+  })
+})
+
+describe('replaceUnsupportedColors — generality (no name allowlist)', () => {
+  it('resolves an unknown/future colour function the code has never heard of', () => {
+    const r = (v) => (v.startsWith('superduper(') ? 'rgb(1, 2, 3)' : null)
+    expect(replaceUnsupportedColors('superduper(42 99 7)', r)).toBe('rgb(1, 2, 3)')
+  })
+
+  it('leaves rgb/rgba/hsl/hsla untouched (no change, returns null)', () => {
+    expect(replaceUnsupportedColors('rgb(1, 2, 3)', resolve)).toBeNull()
+    expect(replaceUnsupportedColors('rgba(1, 2, 3, 0.5)', resolve)).toBeNull()
+    expect(replaceUnsupportedColors('hsl(200, 50%, 50%)', resolve)).toBeNull()
+    expect(replaceUnsupportedColors('hsla(200, 50%, 50%, 0.5)', resolve)).toBeNull()
+  })
+
+  it('preserves url() and resolves only nested colours in containers', () => {
+    // url() can't resolve to a colour → wrapper kept, contents unchanged → null.
+    expect(replaceUnsupportedColors('url(http://example.com/a.png)', resolve)).toBeNull()
+    // gradient container kept, oklch stop resolved, plain keyword preserved.
+    expect(
+      replaceUnsupportedColors('linear-gradient(oklch(0.7 0.15 200), red)', resolve),
+    ).toBe('linear-gradient(rgb(0, 170, 200), red)')
   })
 })
 
@@ -174,10 +204,10 @@ describe('replaceUnsupportedColors — unresolvable tokens', () => {
 
   it('keeps resolved tokens and leaves unresolved ones, when mixed', () => {
     const input = 'linear-gradient(oklch(0.7 0.15 200), oklch(0.9 0.2 123))'
-    // First stop resolves, second doesn't. Result still contains an oklch(), so the
-    // caller's UNSUPPORTED_COLOR_FN re-test will trigger the fallback path.
+    // First stop resolves, second doesn't. Result still contains an oklch(), which
+    // hasUnsupportedColorFn detects (for solid props this triggers the fallback path).
     const out = replaceUnsupportedColors(input, resolve)
     expect(out).toBe('linear-gradient(rgb(0, 170, 200), oklch(0.9 0.2 123))')
-    expect(UNSUPPORTED_COLOR_FN.test(out)).toBe(true)
+    expect(hasUnsupportedColorFn(out)).toBe(true)
   })
 })

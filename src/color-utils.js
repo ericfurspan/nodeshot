@@ -2,20 +2,22 @@
 //
 // html2canvas's CSS parser only understands rgb/rgba/hsl/hsla. Modern Chrome's
 // getComputedStyle returns CSS Color 4 functions (oklch(), color(), oklab(),
-// lab(), lch(), hwb(), color-mix(), light-dark()) verbatim instead of converting
-// them to rgb, so any of those reaching html2canvas throws
+// lab(), lch(), hwb(), color-mix(), …) verbatim instead of converting them to
+// rgb, so any of those reaching html2canvas throws
 // "Attempting to parse an unsupported color function …" and aborts the capture.
 //
-// These helpers convert those functions to the concrete rgb/rgba the browser
-// actually renders, in place, so compound values (gradients, shadows) keep working.
+// Rather than enumerate which functions are unsupported (a list that would have to
+// grow every time CSS adds a colour function), detection is keyed on the closed set
+// html2canvas *does* support. Any function token outside that set is handed to the
+// canvas read-back resolver, which converts ANY colour syntax the browser renders —
+// including ones that don't exist yet — to concrete rgb/rgba. A new CSS colour
+// function therefore needs no code change here.
 
-// Quick test: does a value string contain any unsupported colour function?
-export const UNSUPPORTED_COLOR_FN =
-  /\b(?:color-mix|light-dark|oklch|oklab|lch|lab|hwb|color)\s*\(/i
-
-// Function names we resolve, ordered longest/most-specific first so the scanner
-// matches `color-mix(` before `color(`.
-export const COLOR_FN_NAMES = ['color-mix', 'light-dark', 'oklch', 'oklab', 'lch', 'lab', 'hwb', 'color']
+// The colour functions html2canvas's own parser handles. This set is defined by
+// html2canvas (SUPPORTED_COLOR_FUNCTIONS = rgb/rgba/hsl/hsla) and is stable; it is
+// the only function-name list in this module, and it shrinks the maintenance
+// surface to zero for new colour syntax.
+export const SUPPORTED_COLOR_FN = new Set(['rgb', 'rgba', 'hsl', 'hsla'])
 
 // Resolves a single CSS colour value (which may be a Color 4 function) to the
 // concrete rgb/rgba the browser paints, via a 1×1 canvas read-back. Returns null
@@ -89,59 +91,86 @@ export function firstOpaqueBackgroundColor(rawColors, resolve = resolveColorToRg
   return null
 }
 
-// True when an unsupported colour function starts at index `i` in `value`
-// (the name is immediately followed, ignoring spaces, by an opening paren).
-function colorFnNameAt(value, i) {
-  for (const name of COLOR_FN_NAMES) {
-    if (value.slice(i, i + name.length).toLowerCase() !== name) continue
-    let j = i + name.length
-    while (j < value.length && /\s/.test(value[j])) j++
-    if (value[j] === '(') return name
+// Returns the CSS function token that starts exactly at index `i` (at an identifier
+// boundary), or null. A token is an identifier (letters/digits/_/-) starting with a
+// letter, optionally followed by whitespace, then an opening paren; `end` is the
+// index just past the balanced closing paren.
+function functionTokenAt(str, i) {
+  const prev = i > 0 ? str[i - 1] : ''
+  if (/[a-zA-Z0-9_-]/.test(prev)) return null   // mid-identifier — not a token start
+  if (!/[a-zA-Z]/.test(str[i])) return null      // names begin with a letter
+  let j = i
+  while (j < str.length && /[a-zA-Z0-9_-]/.test(str[j])) j++
+  let k = j
+  while (k < str.length && /\s/.test(str[k])) k++
+  if (str[k] !== '(') return null
+  let depth = 0
+  let p = k
+  for (; p < str.length; p++) {
+    if (str[p] === '(') depth++
+    else if (str[p] === ')' && --depth === 0) { p++; break }
   }
-  return null
+  return { name: str.slice(i, j).toLowerCase(), open: k, end: p }
 }
 
-// Walks `value`, replacing every unsupported colour function — including those
-// nested inside compound/shorthand values like gradients and shadows — with the
-// rgb/rgba the browser renders. Nested parens are balanced correctly, so
-// color-mix(in oklch, oklch(…), …) is resolved as one unit.
+// True when `value` contains any function token whose name html2canvas can't parse
+// (i.e. anything outside SUPPORTED_COLOR_FN). Generic — no per-colour-name list, so
+// it flags current and future CSS colour functions alike. Used to decide whether a
+// solid colour still needs a fallback after resolution was attempted.
+export function hasUnsupportedColorFn(value) {
+  if (!value) return false
+  for (let i = 0; i < value.length; i++) {
+    const tok = functionTokenAt(value, i)
+    if (!tok) continue
+    if (!SUPPORTED_COLOR_FN.has(tok.name)) return true
+    i = tok.end - 1
+  }
+  return false
+}
+
+// Walks `value`, rewriting every colour function html2canvas can't parse — anywhere,
+// including nested inside compound/shorthand values like gradients and shadows — to
+// the rgb/rgba the browser renders. Detection is generic: any function token outside
+// SUPPORTED_COLOR_FN is sent to the resolver. When the resolver can't turn a token
+// into a colour (a container like linear-gradient()/url()/calc(), or a value the
+// canvas can't parse), its wrapper is kept and its arguments are scanned recursively,
+// so gradient stops and other nested colours are still resolved.
 //
 // `resolve` is injectable for testing; defaults to the canvas read-back resolver.
 // Returns the rewritten string, or null when nothing was changed.
 export function replaceUnsupportedColors(value, resolve = resolveColorToRgb) {
   if (!value) return null
-  let out = ''
-  let i = 0
   let changed = false
 
-  while (i < value.length) {
-    const prev = i > 0 ? value[i - 1] : ''
-    // Only attempt a match at an identifier boundary so we don't match `lab`
-    // inside `oklab` or `color` inside `color-mix`.
-    const name = /[a-z0-9-]/i.test(prev) ? null : colorFnNameAt(value, i)
-
-    if (name) {
-      const parenStart = value.indexOf('(', i)
-      let depth = 0
-      let k = parenStart
-      for (; k < value.length; k++) {
-        if (value[k] === '(') depth++
-        else if (value[k] === ')' && --depth === 0) { k++; break }
+  const scan = (str) => {
+    let out = ''
+    let i = 0
+    while (i < str.length) {
+      const tok = functionTokenAt(str, i)
+      if (!tok) {
+        out += str[i]
+        i++
+        continue
       }
-      const fnStr = value.slice(i, k)
-      const rgb = resolve(fnStr)
-      if (rgb) {
-        out += rgb
-        changed = true
+      const fnStr = str.slice(i, tok.end)
+      if (SUPPORTED_COLOR_FN.has(tok.name)) {
+        out += fnStr // html2canvas handles it — leave untouched
       } else {
-        out += fnStr // leave unresolved function untouched; caller handles fallback
+        const rgb = resolve(fnStr)
+        if (rgb) {
+          out += rgb
+          changed = true
+        } else {
+          // Not a standalone colour (gradient/url/calc/…) or unresolvable: keep the
+          // wrapper and recurse into the arguments to resolve any nested colours.
+          out += str.slice(i, tok.open + 1) + scan(str.slice(tok.open + 1, tok.end - 1)) + ')'
+        }
       }
-      i = k
-    } else {
-      out += value[i]
-      i++
+      i = tok.end
     }
+    return out
   }
 
-  return changed ? out : null
+  const result = scan(value)
+  return changed ? result : null
 }
