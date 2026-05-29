@@ -3,9 +3,12 @@
   "name": "NodeShot",
   "version": "1.0.0",
   "description": "Capture any DOM element as PNG or PDF.",
+  "homepage_url": "https://github.com/ericfurspan/nodeshot",
+  "minimum_chrome_version": "111",
   "action": {
     "default_icon": {
       "16": "assets/icon16.png",
+      "32": "assets/icon32.png",
       "48": "assets/icon48.png",
       "128": "assets/icon128.png"
     },
@@ -14,9 +17,10 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "icons": {
     "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
     "48": "assets/icon48.png",
     "128": "assets/icon128.png"
   }

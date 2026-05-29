@@ -58,4 +58,4 @@ function createIcon(size) {
   console.log(`Created icon${size}.png`)
 }
 
-;[16, 48, 128].forEach(createIcon)
+;[16, 32, 48, 128].forEach(createIcon)
