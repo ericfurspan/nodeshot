@@ -1,43 +1,19 @@
-import { fileURLToPath } from 'url'
-import { dirname } from 'path'
 import { defineConfig } from 'vite'
-import { resolve } from 'path'
-import { copyFileSync, mkdirSync, cpSync } from 'fs'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-function copyStaticAssets() {
-  return {
-    name: 'copy-static',
-    closeBundle() {
-      copyFileSync('manifest.json', 'dist/manifest.json')
-      copyFileSync('src/preview.html', 'dist/preview.html')
-      mkdirSync('dist/assets', { recursive: true })
-      cpSync('src/assets', 'dist/assets', { recursive: true })
-    },
-  }
+// Build is orchestrated per-entry by scripts/build.mjs (see the comment there for
+// why). This config holds the shared build output options it reuses, plus the
+// Vitest configuration.
+export const sharedOutput = {
+  entryFileNames: '[name].js',
+  assetFileNames: 'assets/[name].[ext]',
+  format: 'es',
+  // Fold every dependency (incl. CJS-interop runtime helpers) into the one output
+  // file so no shared chunk — and therefore no `import` statement — is emitted.
+  // Required because every entry runs as a classic script.
+  codeSplitting: false,
 }
 
 export default defineConfig({
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    rollupOptions: {
-      input: {
-        background: resolve(__dirname, 'src/background.js'),
-        content: resolve(__dirname, 'src/content.js'),
-        preview: resolve(__dirname, 'src/preview.js'),
-      },
-      output: {
-        entryFileNames: '[name].js',
-        chunkFileNames: 'chunks/[name].js',
-        assetFileNames: 'assets/[name].[ext]',
-        format: 'es',
-      },
-    },
-  },
-  plugins: [copyStaticAssets()],
   test: {
     environment: 'jsdom',
     globals: true,
