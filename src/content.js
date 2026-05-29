@@ -19,6 +19,52 @@ const FOREGROUND_COLOR_PROPS = new Set([
   'color', 'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'caret-color',
 ])
 
+// Resolves a CSS colour value that html2canvas can't parse (oklch(), color(),
+// oklab(), lab(), lch(), hwb(), color-mix(), …) to the concrete rgb/rgba the
+// browser actually renders, via a 1×1 canvas read-back. Modern Chrome's
+// getComputedStyle returns these functions verbatim rather than resolving them to
+// rgb, which is what makes html2canvas throw. Painting the value to a canvas and
+// reading the pixel back gives the exact sRGB bytes the page displays.
+// Returns null when the value can't be resolved (canvas can't parse it either),
+// so the caller can fall back to a sensible default for that property.
+let _colorCtx
+function resolveColorToRgb(value) {
+  if (_colorCtx === undefined) {
+    const c = document.createElement('canvas')
+    c.width = c.height = 1
+    _colorCtx = c.getContext('2d', { willReadFrequently: true }) || null
+  }
+  const ctx = _colorCtx
+  if (!ctx) return null
+
+  // Assigning an invalid value to fillStyle is a no-op (the previous value sticks),
+  // so probe parse-ability with two different sentinels. A function-syntax colour
+  // (oklch/color/…) serialises back as a function string, never equal to the hex
+  // sentinel, so it passes the first check immediately; only legacy values that
+  // serialise to hex need the second probe. If neither sentinel changes, the value
+  // was rejected by the canvas and is unresolvable.
+  ctx.fillStyle = '#000000'
+  ctx.fillStyle = value
+  if (ctx.fillStyle === '#000000') {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = value
+    if (ctx.fillStyle === '#ffffff') return null
+  }
+
+  ctx.clearRect(0, 0, 1, 1)
+  ctx.fillStyle = value
+  ctx.fillRect(0, 0, 1, 1)
+  let r, g, b, a
+  try {
+    ;[r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
+  } catch {
+    return null // getImageData unavailable (shouldn't happen for a same-origin canvas)
+  }
+  return a === 255
+    ? `rgb(${r}, ${g}, ${b})`
+    : `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`
+}
+
 if (!window.__nodeShotInjected) {
   window.__nodeShotInjected = true
   chrome.runtime.onMessage.addListener((msg) => {
@@ -245,21 +291,25 @@ function activatePicker() {
 
         // Guard 2 — CSS Color 4 functions (oklch, color(), etc.).
         // html2canvas only knows rgb/rgba/hsl/hsla; anything else throws and aborts
-        // the entire capture. Override unsupported values with safe fallbacks before
-        // html2canvas reads the computed styles.
+        // the entire capture. Resolve each unsupported value to the rgb/rgba the
+        // browser actually renders so the screenshot keeps its real colours, and
+        // only fall back to a placeholder when a value genuinely can't be resolved.
         doc.querySelectorAll('*').forEach(el => {
           const cs = view.getComputedStyle(el)
           for (const prop of COLOR_PROPS) {
             const val = cs.getPropertyValue(prop)
             if (val && UNSUPPORTED_COLOR_FN.test(val)) {
+              const resolved = resolveColorToRgb(val)
               el.style.setProperty(
                 prop,
-                FOREGROUND_COLOR_PROPS.has(prop) ? '#000000' : 'transparent',
+                resolved ?? (FOREGROUND_COLOR_PROPS.has(prop) ? '#000000' : 'transparent'),
                 'important',
               )
             }
           }
-          // box-shadow and text-shadow embed a color in a multi-value string.
+          // box-shadow and text-shadow embed a colour inside a compound value that
+          // can't be resolved with a single read-back. They're decorative, so drop
+          // them rather than risk a wrong colour or a parse throw.
           for (const prop of ['box-shadow', 'text-shadow']) {
             const val = cs.getPropertyValue(prop)
             if (val && val !== 'none' && UNSUPPORTED_COLOR_FN.test(val)) {
