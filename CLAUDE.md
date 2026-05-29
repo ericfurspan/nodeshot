@@ -17,6 +17,10 @@ npm run icons    # Regenerate src/assets/icon{16,48,128}.png from scripts/genera
 
 Load the extension: `chrome://extensions` → Developer mode → Load unpacked → select `dist/`
 
+## Workflow
+
+After every code change, always run `npm test && npm run build` — tests first to catch logic errors, build second to confirm the bundle compiles and `dist/` is current for local testing. Do not wait to be asked.
+
 ## Architecture
 
 Three isolated runtime contexts:
