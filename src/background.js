@@ -22,11 +22,11 @@ chrome.action.onClicked.addListener(async (tab) => {
 })
 
 chrome.runtime.onMessage.addListener((message, sender) => {
-  // Reject messages from other extensions. In real Chrome our own content scripts
-  // and extension pages always carry sender.id === chrome.runtime.id. The guard
-  // uses short-circuit evaluation so it is a no-op when sender.id is undefined
-  // (which only happens in unit tests that don't simulate Chrome's message routing).
-  if (sender.id && sender.id !== chrome.runtime.id) return
+  // Reject any message whose sender isn't this extension. Legitimate runtime
+  // messages from our own content scripts and extension pages always carry
+  // sender.id === chrome.runtime.id, so a missing or mismatched id means the
+  // message did not originate from us — drop it.
+  if (sender.id !== chrome.runtime.id) return
 
   const tabId = sender.tab?.id
 

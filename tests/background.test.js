@@ -9,6 +9,7 @@ function makeChrome({ sendMessageRejects = true } = {}) {
     },
     scripting: { executeScript: vi.fn().mockResolvedValue([]) },
     runtime: {
+      id: 'fakeextid',
       onMessage: { addListener: vi.fn((fn) => { globalThis._onMessageCb = fn }) },
       getURL: vi.fn((p) => `chrome-extension://fakeextid/${p}`),
     },
@@ -87,12 +88,12 @@ describe('background: messages', () => {
   })
 
   it('clears badge on pickerCancelled', () => {
-    globalThis._onMessageCb({ action: 'pickerCancelled' }, { tab: { id: 42 } })
+    globalThis._onMessageCb({ action: 'pickerCancelled' }, { id: 'fakeextid', tab: { id: 42 } })
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 42 })
   })
 
   it('clears badge and opens preview tab on openPreview', () => {
-    globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { tab: { id: 42 } })
+    globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { id: 'fakeextid', tab: { id: 42 } })
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 42 })
     expect(chrome.tabs.create).toHaveBeenCalledWith({
       url: 'chrome-extension://fakeextid/preview.html#key=abc123',
@@ -102,15 +103,26 @@ describe('background: messages', () => {
   it('does not throw when tabs.create fails on openPreview', async () => {
     chrome.tabs.create = vi.fn().mockImplementation(() => { throw new Error('incognito') })
     expect(() =>
-      globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { tab: { id: 42 } }),
+      globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { id: 'fakeextid', tab: { id: 42 } }),
     ).not.toThrow()
   })
 
   it('does not throw when setBadgeText fails on pickerCancelled', () => {
     chrome.action.setBadgeText = vi.fn().mockImplementation(() => { throw new Error('tab closed') })
     expect(() =>
-      globalThis._onMessageCb({ action: 'pickerCancelled' }, { tab: { id: 42 } }),
+      globalThis._onMessageCb({ action: 'pickerCancelled' }, { id: 'fakeextid', tab: { id: 42 } }),
     ).not.toThrow()
+  })
+
+  it('ignores messages whose sender.id does not match the extension id', () => {
+    globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { id: 'other-extension', tab: { id: 42 } })
+    expect(chrome.tabs.create).not.toHaveBeenCalled()
+    expect(chrome.action.setBadgeText).not.toHaveBeenCalled()
+  })
+
+  it('ignores messages with no sender.id', () => {
+    globalThis._onMessageCb({ action: 'pickerCancelled' }, { tab: { id: 42 } })
+    expect(chrome.action.setBadgeText).not.toHaveBeenCalled()
   })
 })
 
