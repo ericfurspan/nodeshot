@@ -103,4 +103,4 @@ No `host_permissions`. No static `content_scripts` block. (`tabs` was removed â€
 
 ## Other Files
 
-`README.md`, `LICENSE` (MIT), and `PRIVACY.md` (no data leaves the device) exist at the repo root. Design/planning docs live under `docs/superpowers/`.
+`README.md`, `LICENSE` (MIT), and `PRIVACY.md` (no data leaves the device) exist at the repo root.
