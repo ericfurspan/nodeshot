@@ -27,7 +27,6 @@ global.chrome = {
     },
   },
   tabs: {
-    captureVisibleTab: vi.fn(),
     create: vi.fn(),
   },
 }

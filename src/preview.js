@@ -210,16 +210,6 @@ async function savePng(image) {
   }
 }
 
-function blobToArrayBuffer(blob) {
-  if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer()
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsArrayBuffer(blob)
-  })
-}
-
 async function savePdf(image) {
   try {
     const { x, y, w, h } = cropController.getCropRect()
@@ -227,7 +217,7 @@ async function savePdf(image) {
     const ctx = offscreen.getContext('2d')
     ctx.drawImage(image, x, y, w, h, 0, 0, w, h)
     const pngBlob = await offscreen.convertToBlob({ type: 'image/png' })
-    const pngArrayBuffer = await blobToArrayBuffer(pngBlob)
+    const pngArrayBuffer = await pngBlob.arrayBuffer()
 
     const pdfDoc = await PDFDocument.create()
     const pngImage = await pdfDoc.embedPng(pngArrayBuffer)

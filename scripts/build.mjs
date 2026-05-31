@@ -54,6 +54,7 @@ for (const [name, input] of Object.entries(ENTRIES)) {
     build: {
       outDir: 'dist',
       emptyOutDir: false, // dist was cleaned once above; keep earlier entries
+      sourcemap: false,
       rollupOptions: {
         input: { [name]: resolve(root, input) },
         output: sharedOutput,

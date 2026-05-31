@@ -8,7 +8,8 @@
     "build": "node scripts/build.mjs",
     "dev": "node scripts/build.mjs --watch",
     "test": "vitest run",
-    "icons": "node scripts/generate-icons.js"
+    "icons": "node scripts/generate-icons.js",
+    "package": "npm run build && cd dist && zip -r ../nodeshot.zip . && echo 'nodeshot.zip ready'"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",

@@ -73,7 +73,7 @@ function activatePicker() {
     display: 'none',
   })
 
-  // ── Reticle — locked-state indicator (corner brackets + crosshair + dot) ──
+  // ── Reticle — locked-state indicator (corner brackets + crosshair) ──
 
   const reticle = document.createElement('div')
   reticle.id = 'nodeshot-reticle'
@@ -266,8 +266,8 @@ function activatePicker() {
       // Complex SPAs (e.g. Cloudflare-protected pages) can have CDN assets that
       // hang on CORS preflight for a long time before the browser gives up.
       imageTimeout: 3000,
-      scrollX: window.pageXOffset,
-      scrollY: window.pageYOffset,
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
       windowWidth: window.innerWidth,
       windowHeight: window.innerHeight,
       onclone(doc) {

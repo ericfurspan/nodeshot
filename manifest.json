@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "NodeShot",
   "version": "1.0.0",
-  "description": "Capture any DOM element as PNG or PDF.",
+  "description": "Pick any element on the page and capture it as PNG — copy to clipboard, download, or crop and save.",
   "homepage_url": "https://github.com/ericfurspan/nodeshot",
   "minimum_chrome_version": "111",
   "action": {

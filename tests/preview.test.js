@@ -25,7 +25,12 @@ function mockOffscreenCanvas() {
   global.OffscreenCanvas = class {
     constructor(w, h) { this.width = w; this.height = h }
     getContext() { return { drawImage: vi.fn() } }
-    convertToBlob() { return Promise.resolve(new Blob(['png'], { type: 'image/png' })) }
+    convertToBlob() {
+      return Promise.resolve({
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(3)),
+        type: 'image/png',
+      })
+    }
   }
 }
 
