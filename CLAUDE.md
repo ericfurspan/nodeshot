@@ -13,6 +13,7 @@ npm run dev      # Per-entry build in watch mode (node scripts/build.mjs --watch
 npm run build    # Production bundle → dist/ (node scripts/build.mjs)
 npm test         # Vitest (jsdom) — 74 tests across 4 files
 npm run icons    # Regenerate src/assets/icon{16,32,48,128}.png from scripts/generate-icons.js
+npm run package  # Production build → nodeshot.zip at repo root, ready for Chrome Web Store upload
 ```
 
 Load the extension: `chrome://extensions` → Developer mode → Load unpacked → select `dist/`. Requires Chrome 111+ (manifest `minimum_chrome_version`).
