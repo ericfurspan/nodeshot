@@ -116,16 +116,6 @@ function activatePicker() {
   })
   reticle.appendChild(crossV)
 
-  const centerDot = document.createElement('div')
-  Object.assign(centerDot.style, {
-    position: 'absolute', top: '50%', left: '50%',
-    width: '6px', height: '6px',
-    borderRadius: '50%',
-    background: '#ff2d78',
-    transform: 'translate(-50%, -50%)',
-  })
-  reticle.appendChild(centerDot)
-
   // ── Banner ────────────────────────────────────────────────────────────────
 
   const banner = document.createElement('div')
