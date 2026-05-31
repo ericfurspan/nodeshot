@@ -1,3 +1,6 @@
+---
+---
+
 # NodeShot Privacy Policy
 
 NodeShot does not collect, store, or transmit any user data. All processing happens locally in your browser.
