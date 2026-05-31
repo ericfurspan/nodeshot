@@ -58,7 +58,7 @@ function activatePicker() {
     background: 'transparent',
   })
 
-  // ── Highlight — hover indicator (white border, visible on any bg) ─────────
+  // ── Highlight — hover indicator (#1a73e8 border) ───────────────────────────
 
   const highlight = document.createElement('div')
   highlight.id = 'nodeshot-highlight'
@@ -67,7 +67,7 @@ function activatePicker() {
     position: 'fixed',
     zIndex: '2147483647',
     pointerEvents: 'none',
-    border: '2px solid #fff',
+    border: '2px solid #1a73e8',
     backgroundColor: 'transparent',
     boxShadow: '0 0 0 1px rgba(0,0,0,0.7)',
     display: 'none',
@@ -88,13 +88,13 @@ function activatePicker() {
 
   // Corner brackets: TL, TR, BL, BR
   ;[
-    { top: '0',    left: '0',  borderTop: '2px solid #fff', borderLeft: '2px solid #fff'  },
-    { top: '0',    right: '0', borderTop: '2px solid #fff', borderRight: '2px solid #fff' },
-    { bottom: '0', left: '0',  borderBottom: '2px solid #fff', borderLeft: '2px solid #fff'  },
-    { bottom: '0', right: '0', borderBottom: '2px solid #fff', borderRight: '2px solid #fff' },
+    { top: '0',    left: '0',  borderTop: '2px solid #1a73e8', borderLeft: '2px solid #1a73e8'  },
+    { top: '0',    right: '0', borderTop: '2px solid #1a73e8', borderRight: '2px solid #1a73e8' },
+    { bottom: '0', left: '0',  borderBottom: '2px solid #1a73e8', borderLeft: '2px solid #1a73e8'  },
+    { bottom: '0', right: '0', borderBottom: '2px solid #1a73e8', borderRight: '2px solid #1a73e8' },
   ].forEach(styles => {
     const el = document.createElement('div')
-    Object.assign(el.style, { position: 'absolute', width: '12px', height: '12px', ...styles })
+    Object.assign(el.style, { position: 'absolute', width: '12px', height: '12px', boxShadow: '0 0 0 1px rgba(0,0,0,0.7)', ...styles })
     reticle.appendChild(el)
   })
 

@@ -4,7 +4,7 @@ Chrome extension (Manifest V3) that lets users activate an element picker on any
 
 ## Design
 
-Follow shadcn/ui design conventions throughout. Black and white palette only — no color accents. High contrast. Clean, large icons (outlined, not filled). Tight spacing, no decorative elements, no gradients, no drop shadows. UI should feel minimal and deliberate, like a tool worth shipping. When in doubt, do less.
+Follow shadcn/ui design conventions throughout. High contrast. Clean, large icons (outlined, not filled). Tight spacing, no decorative elements, no gradients, no drop shadows. UI should feel minimal and deliberate, like a tool worth shipping. When in doubt, do less.
 
 ## Commands
 
@@ -36,7 +36,7 @@ Three isolated runtime contexts.
 ### Content Script (`src/content.js`)
 - Injected **on demand** (not declared in manifest) — avoids loading html2canvas into every tab
 - On first load: sets `window.__nodeShotInjected = true`, registers a permanent `onMessage` listener for `{action:'activate'}`, calls `activatePicker()`. The `!window.__nodeShotInjected` guard makes re-injection a no-op.
-- **Picker UI**: hover highlight (white border); hold **Shift** to lock onto the current element (corner-bracket reticle); **Esc** cancels. Clicking opens a floating **action dialog** with three modes:
+- **Picker UI**: hover highlight (`#1a73e8` border); hold **Shift** to lock onto the current element (corner-bracket reticle); **Esc** cancels. Clicking opens a floating **action dialog** with three modes:
   - **Copy** → `navigator.clipboard.write` (PNG blob)
   - **PNG** → direct download via `URL.createObjectURL` + `<a download>`
   - **Crop** → stores data URL in `chrome.storage.local` under a UUID, sends `openPreview`
