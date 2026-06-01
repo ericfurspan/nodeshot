@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NodeShot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pick any element on the page and capture it as PNG — copy, download, or crop and export.",
   "homepage_url": "https://github.com/ericfurspan/nodeshot",
   "minimum_chrome_version": "111",
