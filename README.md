@@ -1,22 +1,21 @@
 # NodeShot
 
-A Chrome extension (Manifest V3) for capturing any element on a web page as an
-image. Activate the picker, hover to highlight the element you want, click, and
-copy it to your clipboard, save it as a PNG, or crop it and export as PNG or PDF.
+NodeShot lets you capture any element on any web page as an image — not the
+whole page, just the piece you actually want.
 
 ## Features
 
-- **Element picker** — hover any part of a page to highlight the element under
-  your cursor, with a live outline.
-- **Lock the selection** — hold **Shift** to freeze the current element so you can
-  move the mouse without changing the target. Release Shift to resume.
-- **Three actions on click** — a small toolbar appears with:
-  - **Copy** — copies the element straight to your clipboard as a PNG.
-  - **PNG** — downloads the element as a PNG file.
-  - **Crop** — opens a preview tab where you can trim the capture with drag
-    handles and save it as a **PNG** or **PDF**.
-- **Cancel anytime** — press **Esc**.
-- Filenames are pre-filled from the page title.
+Click the toolbar icon to activate the element picker. Hover over the page to see
+elements highlight as you move. When you find what you want, click — a small
+toolbar appears with three choices:
+
+- **Copy** — paste it straight into any app that accepts images.
+- **PNG** — downloads immediately, named after the page title.
+- **Crop** — opens a preview tab with drag handles so you can trim the capture,
+  then save as PNG or PDF.
+
+Hold **Shift** to lock the selection in place before you click. Press **Esc** to
+cancel at any time.
 
 ## Install (unpacked)
 
@@ -51,17 +50,12 @@ from how that works and from browser security rules — these are expected, not 
   white box. If the whole page has no solid background anywhere, the capture falls
   back to white.
 
-- **Frosted-glass (backdrop blur) effects can't be fully reproduced.** Some elements
-  use a "backdrop blur" that blurs whatever sits behind them (a frosted-glass look).
-  Because NodeShot captures a single element on its own, there's nothing behind it to
-  blur, so the blur itself can't be recreated. The element still captures with the
-  correct base colour and tone — only the blur of the content behind it is missing.
+- **Frosted-glass (backdrop blur) effects can't be fully reproduced.** The element's
+  base color is captured correctly, but the blur of content behind it is not.
 
-- **Content inside cross-origin frames can't be captured.** If the element is, or
-  sits inside, an embedded frame from another website (ads, embedded videos, some
-  payment widgets), the browser blocks access to its contents for security reasons.
-  NodeShot detects this, skips it cleanly, and shows a short message rather than
-  producing a broken image. The frame's area may appear blank in a larger capture.
+- **Content inside cross-origin frames can't be captured.** Content inside
+  cross-origin frames (embedded ads, videos, payment widgets) cannot be captured —
+  NodeShot detects this and shows a clear message instead of a broken image.
 
 - **Some images may be missing if they load slowly or block cross-site use.**
   Images that are still loading, or that are served from another site without
@@ -80,21 +74,20 @@ from how that works and from browser security rules — these are expected, not 
   reproduce pixel-for-pixel. The common case — text, images, backgrounds, borders,
   gradients, and shadows — is reproduced faithfully.
 
-- **Restricted pages can't be captured at all.** Chrome does not allow extensions to
-  run on internal pages like `chrome://…`, the Chrome Web Store, or other
-  extensions' pages. The picker simply won't activate there.
+- **Restricted pages can't be captured at all.** Chrome's internal pages
+  (`chrome://…` and the Chrome Web Store itself) cannot be activated.
 
 ## Permissions
 
-NodeShot requests only what it needs:
+Everything happens locally — NodeShot never sends data to any server. No images,
+no page content, no URLs, nothing leaves your browser. The only permissions it
+requests are the minimum needed to run:
 
-- `activeTab`, `scripting` — inject the picker into the current tab, only when you
-  click the toolbar icon.
-- `storage` — hand the captured image to the crop/preview tab.
+- `activeTab`, `scripting` — to inject the picker when you click the icon.
+- `storage` — to temporarily pass the capture to the preview tab. The entry is
+  deleted immediately after it's read.
 
-It requests **no host permissions** (so it never asks to "read and change your data
-on all websites") and sends **no data off your device** — every capture is processed
-locally in your browser and saved only where you choose.
+No host permissions. No access to your browsing history.
 
 ## Development
 
