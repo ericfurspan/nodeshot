@@ -3,6 +3,8 @@
 
 # NodeShot Privacy Policy
 
+_Effective date: June 1, 2026_
+
 NodeShot does not collect, store, or transmit any user data. All processing happens locally in your browser.
 
 ## What NodeShot does with your data
@@ -23,6 +25,10 @@ NodeShot requests only the permissions required for capture:
 - `scripting` — to inject the element picker
 - `storage` — for the temporary preview handoff described above
 
+## Third-party libraries
+
+NodeShot bundles two open-source libraries: [html2canvas](https://html2canvas.hertzen.com/) (DOM rendering) and [pdf-lib](https://pdf-lib.js.org/) (PDF export). Both run entirely on your device. Neither library contacts any external server as part of NodeShot's use of them.
+
 ## Contact
 
-Questions or concerns can be raised via the [GitHub repository](https://github.com/ericfurspan/nodeshot/issues).
+Questions or concerns can be raised via the [GitHub repository](https://github.com/ericfurspan/nodeshot/issues) or by emailing [eric.furspan@gmail.com](mailto:eric.furspan@gmail.com).
