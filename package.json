@@ -16,8 +16,8 @@
     "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
-    "vite": "^8.0.14",
-    "vitest": "^4.1.8",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.7",
     "jsdom": "^24.0.0",
     "pngjs": "^7.0.0"
   }
