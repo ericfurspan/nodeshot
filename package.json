@@ -1,6 +1,6 @@
 {
   "name": "nodeshot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -9,7 +9,7 @@
     "dev": "node scripts/build.mjs --watch",
     "test": "vitest run",
     "icons": "node scripts/generate-icons.js",
-    "package": "npm run build && cd dist && zip -r ../nodeshot.zip . && echo 'nodeshot.zip ready'"
+    "package": "npm run build && rm -f nodeshot.zip && cd dist && zip -r ../nodeshot.zip . && echo 'nodeshot.zip ready'"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
