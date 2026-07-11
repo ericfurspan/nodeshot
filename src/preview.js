@@ -1,5 +1,6 @@
 // src/preview.js
 import { PDFDocument } from 'pdf-lib'
+import { applyCropDrag } from './crop-utils.js'
 
 function sanitizeTitle(title) {
   return (title || '')
@@ -32,18 +33,18 @@ async function init() {
       showInitError('Capture data not found — it may have already been used.')
       return
     }
-    await chrome.storage.local.remove(key)
-
     const { dataUrl, title } = stored
     const image = new Image()
-    image.src = dataUrl
     await new Promise((resolve, reject) => {
       image.onload = resolve
       image.onerror = reject
+      image.src = dataUrl
     })
 
     const canvas = document.getElementById('crop-canvas')
     cropController = new CropController(canvas, image)
+    // Keep the handoff recoverable until the image has decoded and the editor is ready.
+    await chrome.storage.local.remove(key)
 
     document.getElementById('loading').style.display = 'none'
     document.getElementById('btn-png').disabled = false
@@ -141,23 +142,9 @@ class CropController {
 
   _applyDrag(dx, dy) {
     const { startRect: s } = this.dragging
-    const r = { ...s }
     const imgW = this.image.naturalWidth || this.image.width
     const imgH = this.image.naturalHeight || this.image.height
-    const min = 10
-    switch (this.dragging.handle) {
-      case 'tl': r.x = Math.min(s.x + dx, s.x + s.w - min); r.y = Math.min(s.y + dy, s.y + s.h - min); r.w = s.w - (r.x - s.x); r.h = s.h - (r.y - s.y); break
-      case 'tr': r.y = Math.min(s.y + dy, s.y + s.h - min); r.w = Math.max(s.w + dx, min); r.h = s.h - (r.y - s.y); break
-      case 'bl': r.x = Math.min(s.x + dx, s.x + s.w - min); r.w = s.w - (r.x - s.x); r.h = Math.max(s.h + dy, min); break
-      case 'br': r.w = Math.max(s.w + dx, min); r.h = Math.max(s.h + dy, min); break
-      case 'tc': r.y = Math.min(s.y + dy, s.y + s.h - min); r.h = s.h - (r.y - s.y); break
-      case 'bc': r.h = Math.max(s.h + dy, min); break
-      case 'ml': r.x = Math.min(s.x + dx, s.x + s.w - min); r.w = s.w - (r.x - s.x); break
-      case 'mr': r.w = Math.max(s.w + dx, min); break
-    }
-    r.x = Math.max(0, r.x); r.y = Math.max(0, r.y)
-    r.w = Math.min(r.w, imgW - r.x); r.h = Math.min(r.h, imgH - r.y)
-    this.cropRect = r
+    this.cropRect = applyCropDrag(s, this.dragging.handle, dx, dy, imgW, imgH)
   }
 
   render() {

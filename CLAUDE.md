@@ -97,7 +97,7 @@ Why per-entry isolation: a single multi-entry build makes Rolldown extract code 
 ## Permissions
 
 ```json
-["activeTab", "scripting", "storage"]
+["activeTab", "scripting", "storage", "clipboardWrite", "unlimitedStorage"]
 ```
 
 No `host_permissions`. No static `content_scripts` block. (`tabs` was removed — unused, and it triggers a "read your browsing history" install warning.)

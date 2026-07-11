@@ -1,5 +1,6 @@
 // tests/preview.test.js
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { applyCropDrag } from '../src/crop-utils.js'
 
 vi.mock('pdf-lib', () => ({
   PDFDocument: {
@@ -171,6 +172,16 @@ describe('CropController drag handles', () => {
     expect(r.h).toBe(130) // 150 - 20
   })
 
+  it('keeps the opposite edges fixed when tl is dragged beyond the image origin', () => {
+    const result = applyCropDrag({ x: 20, y: 15, w: 100, h: 80 }, 'tl', -200, -200, 200, 150)
+    expect(result).toEqual({ x: 0, y: 0, w: 120, h: 95 })
+  })
+
+  it('clamps right and bottom handles to the image bounds', () => {
+    const result = applyCropDrag({ x: 20, y: 15, w: 100, h: 80 }, 'br', 500, 500, 200, 150)
+    expect(result).toEqual({ x: 20, y: 15, w: 180, h: 135 })
+  })
+
   function makeCropController(imgW, imgH) {
     const canvas = { width: imgW, height: imgH, style: {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: imgW, height: imgH }) }
     const ctx = { drawImage: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(), strokeRect: vi.fn(), fillStyle: '', strokeStyle: '', lineWidth: 1 }
@@ -204,23 +215,14 @@ describe('CropController drag handles', () => {
       }
       _applyDrag(dx, dy) {
         const { startRect: s } = this.dragging
-        const r = { ...s }
-        const imgW = this.image.naturalWidth
-        const imgH = this.image.naturalHeight
-        const min = 10
-        switch (this.dragging.handle) {
-          case 'tl': r.x = Math.min(s.x + dx, s.x + s.w - min); r.y = Math.min(s.y + dy, s.y + s.h - min); r.w = s.w - (r.x - s.x); r.h = s.h - (r.y - s.y); break
-          case 'tr': r.y = Math.min(s.y + dy, s.y + s.h - min); r.w = Math.max(s.w + dx, min); r.h = s.h - (r.y - s.y); break
-          case 'bl': r.x = Math.min(s.x + dx, s.x + s.w - min); r.w = s.w - (r.x - s.x); r.h = Math.max(s.h + dy, min); break
-          case 'br': r.w = Math.max(s.w + dx, min); r.h = Math.max(s.h + dy, min); break
-          case 'tc': r.y = Math.min(s.y + dy, s.y + s.h - min); r.h = s.h - (r.y - s.y); break
-          case 'bc': r.h = Math.max(s.h + dy, min); break
-          case 'ml': r.x = Math.min(s.x + dx, s.x + s.w - min); r.w = s.w - (r.x - s.x); break
-          case 'mr': r.w = Math.max(s.w + dx, min); break
-        }
-        r.x = Math.max(0, r.x); r.y = Math.max(0, r.y)
-        r.w = Math.min(r.w, imgW - r.x); r.h = Math.min(r.h, imgH - r.y)
-        this.cropRect = r
+        this.cropRect = applyCropDrag(
+          s,
+          this.dragging.handle,
+          dx,
+          dy,
+          this.image.naturalWidth,
+          this.image.naturalHeight,
+        )
       }
       getCropRect() { return { ...this.cropRect } }
     }

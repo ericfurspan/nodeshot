@@ -85,7 +85,10 @@ requests are the minimum needed to run:
 
 - `activeTab`, `scripting` — to inject the picker when you click the icon.
 - `storage` — to temporarily pass the capture to the preview tab. The entry is
-  deleted immediately after it's read.
+  deleted as soon as the preview has loaded successfully.
+- `unlimitedStorage` — to let large captures reach the preview without hitting
+  Chrome's normal local-storage quota.
+- `clipboardWrite` — to make Copy reliable after the capture finishes rendering.
 
 No host permissions. No access to your browsing history.
 

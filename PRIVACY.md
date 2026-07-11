@@ -10,7 +10,7 @@ NodeShot does not collect, store, or transmit any user data. All processing happ
 ## What NodeShot does with your data
 
 - Captured images are saved only to destinations you choose: your clipboard or a local file via your system's save dialog.
-- A temporary copy of the captured image is held in `chrome.storage.local` solely to pass it from the capture step to the preview tab. It is deleted immediately after the preview tab reads it.
+- A temporary copy of the captured image is held in `chrome.storage.local` solely to pass it from the capture step to the preview tab. It is deleted as soon as the preview has loaded successfully.
 - NodeShot never sends any data to any server, including captured images, page content, URLs, or filenames.
 
 ## Browser image requests
@@ -24,6 +24,8 @@ NodeShot requests only the permissions required for capture:
 - `activeTab` — temporary access to the page you click on
 - `scripting` — to inject the element picker
 - `storage` — for the temporary preview handoff described above
+- `unlimitedStorage` — so large captures can complete that temporary handoff
+- `clipboardWrite` — to copy a captured image after it finishes rendering
 
 ## Third-party libraries
 

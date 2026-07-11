@@ -4,6 +4,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 vi.mock('html2canvas', () => ({
   default: vi.fn().mockResolvedValue({
     toDataURL: vi.fn(() => 'data:image/png;base64,fake'),
+    toBlob: vi.fn((callback) => callback(new Blob(['png'], { type: 'image/png' }))),
   }),
 }))
 
@@ -134,11 +135,17 @@ describe('content: full-render capture (click)', () => {
     document.body.innerHTML = ''
     delete window.__nodeShotInjected
     global.chrome = freshChrome()
+    global.ClipboardItem = class { constructor(data) { this.data = data } }
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { write: vi.fn().mockResolvedValue(undefined) },
+    })
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-1234')
 
     vi.resetModules()
     const h2c = await import('html2canvas')
     mockHtml2canvas = h2c.default
+    mockHtml2canvas.mockClear()
 
     await import('../src/content.js')
   })
@@ -173,6 +180,63 @@ describe('content: full-render capture (click)', () => {
       action: 'openPreview',
       key: 'test-uuid-1234',
     })
+  })
+
+  it('writes the rendered PNG to the clipboard on Copy', async () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+      { top: 0, left: 0, width: 100, height: 100 },
+    )
+
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
+    overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }))
+    document.getElementById('ns-btn-copy').click()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(navigator.clipboard.write).toHaveBeenCalledOnce()
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'pickerCancelled' })
+  })
+
+  it('shows a clipboard-specific error when Chrome rejects Copy', async () => {
+    navigator.clipboard.write.mockRejectedValueOnce(new Error('NotAllowedError'))
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+      { top: 0, left: 0, width: 100, height: 100 },
+    )
+
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
+    overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }))
+    document.getElementById('ns-btn-copy').click()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(document.getElementById('nodeshot-error').textContent).toContain(
+      'Chrome could not write the image to your clipboard',
+    )
+  })
+
+  it('starts only one capture when an action button is clicked repeatedly', async () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const overlay = document.getElementById('nodeshot-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+      { top: 0, left: 0, width: 100, height: 100 },
+    )
+
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
+    overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }))
+    const button = document.getElementById('ns-btn-crop')
+    button.click()
+    button.click()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(mockHtml2canvas).toHaveBeenCalledTimes(1)
   })
 })
 

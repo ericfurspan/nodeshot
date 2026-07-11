@@ -351,7 +351,7 @@ function activatePicker() {
         Download: 'Download failed — please try again.',
         Crop: 'Capture failed — this page may block screenshots.',
       }
-      showError(fallbacks[action] ?? 'Capture failed.')
+      showError(err?.userMessage ?? fallbacks[action] ?? 'Capture failed.')
     }
     try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
   }
@@ -367,7 +367,12 @@ function activatePicker() {
       const blob = await new Promise((res, rej) =>
         canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png')
       )
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      } catch (err) {
+        err.userMessage = 'Copy failed — Chrome could not write the image to your clipboard.'
+        throw err
+      }
       try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
     } catch (err) {
       reportCaptureError(err, 'Copy')
@@ -476,6 +481,8 @@ function activatePicker() {
       },
     ]
 
+    const buttons = []
+    let actionStarted = false
     for (const { id, label, icon, handler } of btnDefs) {
       const btn = document.createElement('button')
       btn.id = id
@@ -502,7 +509,13 @@ function activatePicker() {
       btn.append(makeSvgIcon(icon), labelEl)
       btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(255,255,255,0.08)' })
       btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent' })
-      btn.addEventListener('click', handler)
+      btn.addEventListener('click', () => {
+        if (actionStarted) return
+        actionStarted = true
+        for (const actionButton of buttons) actionButton.disabled = true
+        handler()
+      })
+      buttons.push(btn)
       dialog.appendChild(btn)
     }
 
@@ -602,7 +615,7 @@ function activatePicker() {
     // Only remove elements we own (have NS attribute). If a page element coincidentally
     // shares one of our IDs, getElementById would find it — we must not remove it.
     for (const id of ['nodeshot-overlay', 'nodeshot-highlight', 'nodeshot-reticle',
-      'nodeshot-banner', 'nodeshot-dialog', 'nodeshot-spinner']) {
+      'nodeshot-banner', 'nodeshot-dialog', 'nodeshot-spinner', 'nodeshot-error']) {
       const el = document.getElementById(id)
       if (el?.hasAttribute(NS)) el.remove()
     }
@@ -677,8 +690,11 @@ function removeSpinner() {
 }
 
 function showError(message) {
+  const existing = document.getElementById('nodeshot-error')
+  if (existing?.hasAttribute(NS)) existing.remove()
   const el = document.createElement('div')
   el.id = 'nodeshot-error'
+  el.setAttribute(NS, '')
   Object.assign(el.style, {
     position: 'fixed',
     bottom: '24px',
