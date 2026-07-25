@@ -225,7 +225,11 @@ export function normalizeDocumentColors(doc, resolve = resolveColorToRgb) {
     // placeholder so html2canvas never receives an unsupported function.
     for (const prop of SOLID_COLOR_PROPS) {
       const replaced = replaceUnsupportedColors(cs.getPropertyValue(prop), resolve)
-      if (replaced === null) continue // already html2canvas-safe
+      // null means nothing was rewritten — either the value was already
+      // html2canvas-safe, or nothing in it could be resolved at all. Neither leaves
+      // us anything better to write, so leave the value alone; an unresolvable
+      // colour reaching html2canvas surfaces through the capture-level error path.
+      if (replaced === null) continue
       el.style.setProperty(
         prop,
         hasUnsupportedColorFn(replaced)
