@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "NodeShot",
-  "version": "1.0.2",
-  "description": "Pick any element on the page and capture it as PNG — copy, download, or crop and export.",
+  "version": "2.0.0",
+  "description": "Pick any element on the page and capture it as a PNG — copy it to the clipboard or download it.",
   "homepage_url": "https://github.com/ericfurspan/nodeshot",
   "minimum_chrome_version": "111",
   "action": {
@@ -17,7 +17,7 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["activeTab", "scripting", "storage", "clipboardWrite", "unlimitedStorage"],
+  "permissions": ["activeTab", "scripting", "clipboardWrite"],
   "icons": {
     "16": "assets/icon16.png",
     "32": "assets/icon32.png",

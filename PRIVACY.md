@@ -3,14 +3,14 @@
 
 # NodeShot Privacy Policy
 
-_Effective date: June 1, 2026_
+_Effective date: July 25, 2026_
 
 NodeShot does not collect, store, or transmit any user data. All processing happens locally in your browser.
 
 ## What NodeShot does with your data
 
-- Captured images are saved only to destinations you choose: your clipboard or a local file via your system's save dialog.
-- A temporary copy of the captured image is held in `chrome.storage.local` solely to pass it from the capture step to the preview tab. It is deleted as soon as the preview has loaded successfully.
+- Captured images are saved only to destinations you choose: your clipboard or a local file in your downloads folder.
+- Captures are held in memory only for as long as it takes to write them to your clipboard or to disk. Nothing is written to extension storage.
 - NodeShot never sends any data to any server, including captured images, page content, URLs, or filenames.
 
 ## Browser image requests
@@ -23,13 +23,11 @@ NodeShot requests only the permissions required for capture:
 
 - `activeTab` — temporary access to the page you click on
 - `scripting` — to inject the element picker
-- `storage` — for the temporary preview handoff described above
-- `unlimitedStorage` — so large captures can complete that temporary handoff
 - `clipboardWrite` — to copy a captured image after it finishes rendering
 
 ## Third-party libraries
 
-NodeShot bundles two open-source libraries: [html2canvas](https://html2canvas.hertzen.com/) (DOM rendering) and [pdf-lib](https://pdf-lib.js.org/) (PDF export). Both run entirely on your device. Neither library contacts any external server as part of NodeShot's use of them.
+NodeShot bundles one open-source library: [html2canvas](https://html2canvas.hertzen.com/) (DOM rendering). It runs entirely on your device and contacts no external server as part of NodeShot's use of it.
 
 ## Contact
 

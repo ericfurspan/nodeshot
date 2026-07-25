@@ -5,8 +5,8 @@ if (!document.elementsFromPoint) {
   document.elementsFromPoint = () => []
 }
 
-// Provide the minimum canvas surface used by color-utils. Individual preview tests
-// replace this with their richer drawing mock.
+// jsdom's canvas has no 2d context — provide the minimum surface used by the
+// canvas read-back in color-utils.
 HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   _fillStyle: '#000000',
   get fillStyle() { return this._fillStyle },
@@ -28,16 +28,5 @@ global.chrome = {
   runtime: {
     onMessage: { addListener: vi.fn() },
     sendMessage: vi.fn(),
-    getURL: vi.fn((path) => `chrome-extension://fakeextid/${path}`),
-  },
-  storage: {
-    local: {
-      set: vi.fn().mockResolvedValue(undefined),
-      get: vi.fn().mockResolvedValue({}),
-      remove: vi.fn().mockResolvedValue(undefined),
-    },
-  },
-  tabs: {
-    create: vi.fn(),
   },
 }

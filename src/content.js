@@ -349,7 +349,6 @@ function activatePicker() {
       const fallbacks = {
         Copy: 'Copy failed — capture or clipboard error.',
         Download: 'Download failed — please try again.',
-        Crop: 'Capture failed — this page may block screenshots.',
       }
       showError(err?.userMessage ?? fallbacks[action] ?? 'Capture failed.')
     }
@@ -406,23 +405,6 @@ function activatePicker() {
     }
   }
 
-  async function handleCrop(target) {
-    const key = crypto.randomUUID()
-    cleanup()
-    showSpinner()
-    await new Promise(r => setTimeout(r, 0))
-    try {
-      const canvas = await captureElement(target)
-      const dataUrl = canvas.toDataURL('image/png')
-      await chrome.storage.local.set({ [key]: { dataUrl, title: document.title } })
-      try { chrome.runtime.sendMessage({ action: 'openPreview', key }) } catch {}
-    } catch (err) {
-      reportCaptureError(err, 'Crop')
-    } finally {
-      removeSpinner()
-    }
-  }
-
   // ── Action dialog ─────────────────────────────────────────────────────────
 
   function showActionDialog(x, y, target) {
@@ -467,17 +449,6 @@ function activatePicker() {
           ['path', { d: 'M3 13h10', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
         ],
         handler: () => handleDownload(target),
-      },
-      {
-        id: 'ns-btn-crop',
-        label: 'CROP',
-        icon: [
-          ['path', { d: 'M4 1v3M1 4h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
-          ['path', { d: 'M12 1v3M9 4h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
-          ['path', { d: 'M4 15v-3M1 12h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
-          ['path', { d: 'M12 15v-3M9 12h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
-        ],
-        handler: () => handleCrop(target),
       },
     ]
 
