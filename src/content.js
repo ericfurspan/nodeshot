@@ -1,36 +1,13 @@
 // src/content.js
 import html2canvas from 'html2canvas'
 import {
-  replaceUnsupportedColors,
-  hasUnsupportedColorFn,
+  normalizeDocumentColors,
   firstOpaqueBackgroundColor,
 } from './color-utils.js'
 
 // Attribute set on every element we inject so cleanup() can distinguish our nodes
 // from any page element that happens to share one of our IDs (DOM clobbering guard).
 const NS = 'data-nodeshot'
-
-// The colour-bearing properties html2canvas parses per-element as colours (longhands
-// only — that's what getComputedStyle exposes). These are the exact properties whose
-// values reach html2canvas's colour parser and can throw on a CSS Color 4 function.
-//
-// Solid properties hold a single <color>; if resolution fails we can safely fall back
-// to a placeholder (none of them accept url()/gradient, so a failed resolve always
-// means an unresolvable colour).
-const SOLID_COLOR_PROPS = [
-  'color', 'background-color',
-  'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
-  'text-decoration-color', '-webkit-text-stroke-color',
-]
-// Foreground colours fall back to black, everything else to transparent.
-const FOREGROUND_COLOR_PROPS = new Set(['color', 'text-decoration-color', '-webkit-text-stroke-color'])
-// Compound properties embed colours inside multi-token values (gradient stops, shadow
-// colours). They can also legitimately contain url()/gradients, so we never apply a
-// placeholder fallback — only in-place token rewriting.
-const COMPOUND_COLOR_PROPS = ['background-image', 'box-shadow', 'text-shadow']
-// (SVG paint — fill/stroke/stop-color/… — is intentionally omitted: html2canvas does
-// not parse it as a colour, it rasterises inline SVG via the browser, which renders
-// Color 4 natively. It can also be url(#ref), which must not be touched.)
 
 if (!window.__nodeShotInjected) {
   window.__nodeShotInjected = true
@@ -293,36 +270,9 @@ function activatePicker() {
         // Guard 2 — colour functions html2canvas can't parse (oklch(), color(),
         // color-mix(), and any future CSS colour syntax). html2canvas only knows
         // rgb/rgba/hsl/hsla; anything else throws and aborts the whole capture.
-        // Modern Chrome's getComputedStyle returns these functions verbatim,
-        // including inside compound values like gradient stops and shadows. We
-        // rewrite each unsupported function — in place — to the rgb the browser
-        // renders. Detection is generic (see color-utils): no per-function list.
-        doc.querySelectorAll('*').forEach(el => {
-          const cs = view.getComputedStyle(el)
-
-          // Solid colours: rewrite, and if a token still can't be resolved fall back
-          // to a placeholder so html2canvas never receives an unsupported function.
-          for (const prop of SOLID_COLOR_PROPS) {
-            const val = cs.getPropertyValue(prop)
-            const replaced = replaceUnsupportedColors(val)
-            if (replaced === null) continue // already html2canvas-safe
-            el.style.setProperty(
-              prop,
-              hasUnsupportedColorFn(replaced)
-                ? (FOREGROUND_COLOR_PROPS.has(prop) ? '#000000' : 'transparent')
-                : replaced,
-              'important',
-            )
-          }
-
-          // Compound values: rewrite resolvable colour tokens in place, preserving
-          // gradients/shadows (and any url()). No placeholder fallback — anything
-          // left unresolved is handled by the capture-level error path.
-          for (const prop of COMPOUND_COLOR_PROPS) {
-            const replaced = replaceUnsupportedColors(cs.getPropertyValue(prop))
-            if (replaced !== null) el.style.setProperty(prop, replaced, 'important')
-          }
-        })
+        // Which properties are colour-bearing and what to write when a colour
+        // can't be resolved are the colour module's business, not the picker's.
+        normalizeDocumentColors(doc)
       },
     })
   }

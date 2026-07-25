@@ -174,3 +174,73 @@ export function replaceUnsupportedColors(value, resolve = resolveColorToRgb) {
   const result = scan(value)
   return changed ? result : null
 }
+
+// ── Document-level policy ───────────────────────────────────────────────────
+//
+// Everything above answers "what is this colour?". Everything below answers
+// "which colours does html2canvas need us to rewrite, and what do we write when
+// one can't be resolved?" — the policy half. It lives here so the whole of
+// "html2canvas can't parse CSS Color 4" is one module: when a new colour syntax
+// starts breaking captures, this file is the only place to look.
+
+// The colour-bearing properties html2canvas parses per-element as colours (longhands
+// only — that's what getComputedStyle exposes). These are the exact properties whose
+// values reach html2canvas's colour parser and can throw on a CSS Color 4 function.
+//
+// Solid properties hold a single <color>, so a placeholder fallback is safe: none of
+// them accept url()/gradient, so an unresolved token always means an unresolvable
+// colour rather than a container we'd be destroying.
+const SOLID_COLOR_PROPS = [
+  'color', 'background-color',
+  'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
+  'text-decoration-color', '-webkit-text-stroke-color',
+]
+// Foreground colours fall back to black, everything else to transparent.
+const FOREGROUND_COLOR_PROPS = new Set(['color', 'text-decoration-color', '-webkit-text-stroke-color'])
+// Compound properties embed colours inside multi-token values (gradient stops, shadow
+// colours). They can also legitimately contain url()/gradients, so we never apply a
+// placeholder fallback — only in-place token rewriting.
+const COMPOUND_COLOR_PROPS = ['background-image', 'box-shadow', 'text-shadow']
+// (SVG paint — fill/stroke/stop-color/… — is intentionally omitted: html2canvas does
+// not parse it as a colour, it rasterises inline SVG via the browser, which renders
+// Color 4 natively. It can also be url(#ref), which must not be touched.)
+
+// Rewrites every colour html2canvas can't parse across an entire document, in place,
+// to the rgb/rgba the browser renders. Intended for html2canvas's `onclone` hook,
+// where `doc` is the throwaway clone — this mutates inline styles, so never hand it
+// the live document.
+//
+// A document with no defaultView has no getComputedStyle, so there is nothing to
+// read and this is a no-op.
+//
+// `resolve` is injectable for testing; defaults to the canvas read-back resolver.
+export function normalizeDocumentColors(doc, resolve = resolveColorToRgb) {
+  const view = doc?.defaultView
+  if (!view) return
+
+  doc.querySelectorAll('*').forEach(el => {
+    const cs = view.getComputedStyle(el)
+
+    // Solid colours: rewrite, and if a token still can't be resolved fall back to a
+    // placeholder so html2canvas never receives an unsupported function.
+    for (const prop of SOLID_COLOR_PROPS) {
+      const replaced = replaceUnsupportedColors(cs.getPropertyValue(prop), resolve)
+      if (replaced === null) continue // already html2canvas-safe
+      el.style.setProperty(
+        prop,
+        hasUnsupportedColorFn(replaced)
+          ? (FOREGROUND_COLOR_PROPS.has(prop) ? '#000000' : 'transparent')
+          : replaced,
+        'important',
+      )
+    }
+
+    // Compound values: rewrite resolvable colour tokens in place, preserving
+    // gradients/shadows (and any url()). No placeholder fallback — anything left
+    // unresolved is handled by the capture-level error path.
+    for (const prop of COMPOUND_COLOR_PROPS) {
+      const replaced = replaceUnsupportedColors(cs.getPropertyValue(prop), resolve)
+      if (replaced !== null) el.style.setProperty(prop, replaced, 'important')
+    }
+  })
+}
