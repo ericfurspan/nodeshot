@@ -14,7 +14,6 @@ function freshChrome() {
       sendMessage: vi.fn(),
       onMessage: { addListener: vi.fn() },
     },
-    storage: { local: { set: vi.fn().mockResolvedValue(undefined) } },
   }
 }
 
@@ -140,8 +139,6 @@ describe('content: full-render capture (click)', () => {
       configurable: true,
       value: { write: vi.fn().mockResolvedValue(undefined) },
     })
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-1234')
-
     vi.resetModules()
     const h2c = await import('html2canvas')
     mockHtml2canvas = h2c.default
@@ -150,7 +147,7 @@ describe('content: full-render capture (click)', () => {
     await import('../src/content.js')
   })
 
-  it('shows action dialog on element click, then captures and opens preview on Crop', async () => {
+  it('shows action dialog on element click, then captures and downloads on PNG', async () => {
     const target = document.createElement('div')
     document.body.appendChild(target)
 
@@ -164,22 +161,23 @@ describe('content: full-render capture (click)', () => {
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
     overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50, shiftKey: false }))
 
-    // Dialog should now be present
+    // Dialog should now be present, offering both actions
     expect(document.getElementById('nodeshot-dialog')).not.toBeNull()
-    expect(document.getElementById('ns-btn-crop')).not.toBeNull()
+    expect(document.getElementById('ns-btn-copy')).not.toBeNull()
+    expect(document.getElementById('ns-btn-download')).not.toBeNull()
 
-    // Click Crop to trigger capture
-    document.getElementById('ns-btn-crop').click()
+    // Anchor clicks trigger a jsdom "not implemented: navigation" noise otherwise
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    document.getElementById('ns-btn-download').click()
     await new Promise((r) => setTimeout(r, 0))
 
-    expect(mockHtml2canvas).toHaveBeenCalledWith(target, expect.objectContaining({ useCORS: true }))
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      'test-uuid-1234': { dataUrl: 'data:image/png;base64,fake', title: expect.any(String) },
-    })
-    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-      action: 'openPreview',
-      key: 'test-uuid-1234',
-    })
+    // The dialog action reaches capture with the picked element; what capture does
+    // with it (options, clone guards, blob conversion) is tests/capture.test.js
+    expect(mockHtml2canvas).toHaveBeenCalledWith(target, expect.any(Object))
+    expect(anchorClick).toHaveBeenCalledOnce()
+    expect(anchorClick.mock.instances[0].download).toMatch(/\.png$/)
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'pickerCancelled' })
   })
 
   it('writes the rendered PNG to the clipboard on Copy', async () => {
@@ -231,7 +229,7 @@ describe('content: full-render capture (click)', () => {
 
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
     overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }))
-    const button = document.getElementById('ns-btn-crop')
+    const button = document.getElementById('ns-btn-copy')
     button.click()
     button.click()
     await new Promise((r) => setTimeout(r, 0))
@@ -299,7 +297,13 @@ describe('content: Shift-to-lock', () => {
     expect(document.getElementById('nodeshot-highlight').style.top).toBe('300px')
   })
 
-  it('captures the frozen element (not the hovered one) when dialog crop is clicked while Shift is held', async () => {
+  it('captures the frozen element (not the hovered one) when a dialog action is clicked while Shift is held', async () => {
+    global.ClipboardItem = class { constructor(data) { this.data = data } }
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { write: vi.fn().mockResolvedValue(undefined) },
+    })
+
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }))
     // Mouse moves to a different element while frozen
     const other = document.createElement('div')
@@ -309,13 +313,11 @@ describe('content: Shift-to-lock', () => {
     // Click — shows action dialog with the frozen (original) target
     overlay.dispatchEvent(new MouseEvent('click', { clientX: 250, clientY: 250, shiftKey: true }))
     expect(document.getElementById('nodeshot-dialog')).not.toBeNull()
-    // Crop should capture original frozen target, not other
-    document.getElementById('ns-btn-crop').click()
+    // Copy should capture the original frozen target, not other
+    document.getElementById('ns-btn-copy').click()
     await new Promise((r) => setTimeout(r, 0))
     expect(mockH2c).toHaveBeenCalledWith(target, expect.any(Object))
-    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'openPreview' }),
-    )
+    expect(navigator.clipboard.write).toHaveBeenCalledOnce()
   })
 
   it('updates the banner to indicate locked state when frozen', () => {
@@ -338,7 +340,6 @@ describe('content: capture error handling', () => {
     document.body.innerHTML = ''
     delete window.__nodeShotInjected
     global.chrome = freshChrome()
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-err')
 
     vi.resetModules()
     const h2c = await import('html2canvas')
@@ -354,8 +355,8 @@ describe('content: capture error handling', () => {
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 0, left: 0, width: 100, height: 100 })
     overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
     overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }))
-    // Click shows the action dialog; trigger capture via Crop
-    document.getElementById('ns-btn-crop').click()
+    // Click shows the action dialog; trigger capture via PNG
+    document.getElementById('ns-btn-download').click()
 
     await new Promise((r) => setTimeout(r, 0))
   }
@@ -364,7 +365,7 @@ describe('content: capture error handling', () => {
     await setupWithFailingCapture()
     const toast = document.getElementById('nodeshot-error')
     expect(toast).not.toBeNull()
-    expect(toast.textContent).toContain('Capture failed')
+    expect(toast.textContent).toContain('Download failed')
   })
 
   it('sends pickerCancelled to clear the badge when html2canvas throws', async () => {

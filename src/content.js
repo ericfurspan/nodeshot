@@ -1,36 +1,9 @@
 // src/content.js
-import html2canvas from 'html2canvas'
-import {
-  replaceUnsupportedColors,
-  hasUnsupportedColorFn,
-  firstOpaqueBackgroundColor,
-} from './color-utils.js'
+import { captureElement, classifyCaptureError } from './capture.js'
 
 // Attribute set on every element we inject so cleanup() can distinguish our nodes
 // from any page element that happens to share one of our IDs (DOM clobbering guard).
 const NS = 'data-nodeshot'
-
-// The colour-bearing properties html2canvas parses per-element as colours (longhands
-// only — that's what getComputedStyle exposes). These are the exact properties whose
-// values reach html2canvas's colour parser and can throw on a CSS Color 4 function.
-//
-// Solid properties hold a single <color>; if resolution fails we can safely fall back
-// to a placeholder (none of them accept url()/gradient, so a failed resolve always
-// means an unresolvable colour).
-const SOLID_COLOR_PROPS = [
-  'color', 'background-color',
-  'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
-  'text-decoration-color', '-webkit-text-stroke-color',
-]
-// Foreground colours fall back to black, everything else to transparent.
-const FOREGROUND_COLOR_PROPS = new Set(['color', 'text-decoration-color', '-webkit-text-stroke-color'])
-// Compound properties embed colours inside multi-token values (gradient stops, shadow
-// colours). They can also legitimately contain url()/gradients, so we never apply a
-// placeholder fallback — only in-place token rewriting.
-const COMPOUND_COLOR_PROPS = ['background-image', 'box-shadow', 'text-shadow']
-// (SVG paint — fill/stroke/stop-color/… — is intentionally omitted: html2canvas does
-// not parse it as a colour, it rasterises inline SVG via the browser, which renders
-// Color 4 natively. It can also be url(#ref), which must not be touched.)
 
 if (!window.__nodeShotInjected) {
   window.__nodeShotInjected = true
@@ -214,210 +187,31 @@ function activatePicker() {
     )
   }
 
-  // ── Capture helper ────────────────────────────────────────────────────────
-
-  // Determines the backdrop to capture a node-scoped element against. html2canvas
-  // otherwise defaults to opaque WHITE, which makes a translucent element (e.g. a
-  // shadcn card with a semi-transparent fill, or any element with no background of
-  // its own) composite over white and render as a washed-out grey box. Instead we
-  // walk from the target up through its ancestors (and on to body/html) and use the
-  // first fully opaque background colour we find — the page's real backdrop — so
-  // translucent fills composite over the colour they actually sit on. Falls back to
-  // white when nothing opaque is found (e.g. a genuinely transparent page).
-  function resolveCaptureBackground(target) {
-    const view = target.ownerDocument.defaultView || window
-    const colors = []
-    for (let el = target; el; el = el.parentElement) {
-      colors.push(view.getComputedStyle(el).backgroundColor)
-    }
-    return firstOpaqueBackgroundColor(colors) ?? '#ffffff'
-  }
-
-  function captureElement(target) {
-    // Pre-flight: reject detached elements before paying the cost of html2canvas.
-    // A fast-updating page can remove the selected node between click and capture.
-    if (!target.isConnected) {
-      const err = new Error('Element is no longer in the document.')
-      err.expected = true
-      err.userMessage = 'Can\'t capture — the element was removed before the screenshot was taken.'
-      throw err
-    }
-
-    // Pre-flight: cross-origin iframes cannot be cloned by html2canvas.
-    // elementsFromPoint returns the <iframe> element itself for cross-origin frames,
-    // and html2canvas will reject with "Unable to find element in cloned iframe".
-    if (target.tagName === 'IFRAME') {
-      try { void target.contentWindow?.location?.href }
-      catch {
-        const err = new Error('Cross-origin iframe cannot be captured.')
-        err.expected = true
-        err.userMessage = 'Can\'t capture — this element is inside a cross-origin frame.'
-        throw err
-      }
-    }
-
-    return html2canvas(target, {
-      useCORS: true,
-      logging: false,
-      // Capture against the page's real background instead of html2canvas's default
-      // white, so translucent backgrounds keep their true tone (see helper above).
-      backgroundColor: resolveCaptureBackground(target),
-      // Fail fast on slow/blocked resources instead of waiting the 15 s default.
-      // Complex SPAs (e.g. Cloudflare-protected pages) can have CDN assets that
-      // hang on CORS preflight for a long time before the browser gives up.
-      imageTimeout: 3000,
-      scrollX: window.scrollX,
-      scrollY: window.scrollY,
-      windowWidth: window.innerWidth,
-      windowHeight: window.innerHeight,
-      onclone(doc) {
-        const view = doc.defaultView
-        if (!view) return
-
-        // Guard 1 — negative SVG <rect> dimensions.
-        // Sub-pixel layout and CSS transforms can produce negative width/height.
-        // These cause browser SVG validation errors and may abort html2canvas.
-        // Check both the HTML presentation attribute AND the CSS-applied value.
-        doc.querySelectorAll('rect').forEach(rect => {
-          const aw = parseFloat(rect.getAttribute('width'))
-          const ah = parseFloat(rect.getAttribute('height'))
-          if (!isNaN(aw) && aw < 0) rect.setAttribute('width', '0')
-          if (!isNaN(ah) && ah < 0) rect.setAttribute('height', '0')
-          const cs = view.getComputedStyle(rect)
-          const cw = parseFloat(cs.width)
-          const ch = parseFloat(cs.height)
-          if (!isNaN(cw) && cw < 0) rect.style.setProperty('width', '0px', 'important')
-          if (!isNaN(ch) && ch < 0) rect.style.setProperty('height', '0px', 'important')
-        })
-
-        // Guard 2 — colour functions html2canvas can't parse (oklch(), color(),
-        // color-mix(), and any future CSS colour syntax). html2canvas only knows
-        // rgb/rgba/hsl/hsla; anything else throws and aborts the whole capture.
-        // Modern Chrome's getComputedStyle returns these functions verbatim,
-        // including inside compound values like gradient stops and shadows. We
-        // rewrite each unsupported function — in place — to the rgb the browser
-        // renders. Detection is generic (see color-utils): no per-function list.
-        doc.querySelectorAll('*').forEach(el => {
-          const cs = view.getComputedStyle(el)
-
-          // Solid colours: rewrite, and if a token still can't be resolved fall back
-          // to a placeholder so html2canvas never receives an unsupported function.
-          for (const prop of SOLID_COLOR_PROPS) {
-            const val = cs.getPropertyValue(prop)
-            const replaced = replaceUnsupportedColors(val)
-            if (replaced === null) continue // already html2canvas-safe
-            el.style.setProperty(
-              prop,
-              hasUnsupportedColorFn(replaced)
-                ? (FOREGROUND_COLOR_PROPS.has(prop) ? '#000000' : 'transparent')
-                : replaced,
-              'important',
-            )
-          }
-
-          // Compound values: rewrite resolvable colour tokens in place, preserving
-          // gradients/shadows (and any url()). No placeholder fallback — anything
-          // left unresolved is handled by the capture-level error path.
-          for (const prop of COMPOUND_COLOR_PROPS) {
-            const replaced = replaceUnsupportedColors(cs.getPropertyValue(prop))
-            if (replaced !== null) el.style.setProperty(prop, replaced, 'important')
-          }
-        })
-      },
-    })
-  }
-
-  // ── Capture error reporting ───────────────────────────────────────────────
-
-  // Determines whether an error from html2canvas represents an expected browser
-  // limitation (cross-origin frame, detached element) vs. a genuine defect.
-  function isExpectedCaptureLimit(err) {
-    if (err?.expected === true) return true
-    const msg = err?.message ?? String(err ?? '')
-    return msg.includes('Unable to find element in cloned iframe') ||
-           msg.includes('cross-origin') ||
-           msg.includes('no longer in the document')
-  }
+  // ── Action handlers ───────────────────────────────────────────────────────
 
   function reportCaptureError(err, action) {
-    if (isExpectedCaptureLimit(err)) {
-      const userMsg = err?.userMessage ?? 'Can\'t capture — the element may be inside a protected or cross-origin frame.'
+    const { expected, message } = classifyCaptureError(err, action)
+    if (expected) {
       console.warn('[NodeShot] Capture skipped (expected limitation):', err?.message ?? String(err))
-      showError(userMsg)
     } else {
       console.error(`[NodeShot] ${action} failed:`, err)
-      const fallbacks = {
-        Copy: 'Copy failed — capture or clipboard error.',
-        Download: 'Download failed — please try again.',
-        Crop: 'Capture failed — this page may block screenshots.',
-      }
-      showError(err?.userMessage ?? fallbacks[action] ?? 'Capture failed.')
     }
+    showError(message)
     try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
   }
 
-  // ── Action handlers ───────────────────────────────────────────────────────
-
-  async function handleCopy(target) {
+  // Every action is the same pipeline around a different destination: tear down the
+  // picker, show the spinner, yield a frame so it actually paints, capture, hand the
+  // blob to `sink`, then clear the badge. `action` only names the failure wording.
+  async function runCaptureAction(target, action, sink) {
     cleanup()
     showSpinner()
     await new Promise(r => setTimeout(r, 0))
     try {
-      const canvas = await captureElement(target)
-      const blob = await new Promise((res, rej) =>
-        canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png')
-      )
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-      } catch (err) {
-        err.userMessage = 'Copy failed — Chrome could not write the image to your clipboard.'
-        throw err
-      }
+      await sink(await captureElement(target))
       try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
     } catch (err) {
-      reportCaptureError(err, 'Copy')
-    } finally {
-      removeSpinner()
-    }
-  }
-
-  async function handleDownload(target) {
-    cleanup()
-    showSpinner()
-    await new Promise(r => setTimeout(r, 0))
-    try {
-      const canvas = await captureElement(target)
-      const blob = await new Promise((res, rej) =>
-        canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png')
-      )
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${titleToFilename(document.title)}.png`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
-    } catch (err) {
-      reportCaptureError(err, 'Download')
-    } finally {
-      removeSpinner()
-    }
-  }
-
-  async function handleCrop(target) {
-    const key = crypto.randomUUID()
-    cleanup()
-    showSpinner()
-    await new Promise(r => setTimeout(r, 0))
-    try {
-      const canvas = await captureElement(target)
-      const dataUrl = canvas.toDataURL('image/png')
-      await chrome.storage.local.set({ [key]: { dataUrl, title: document.title } })
-      try { chrome.runtime.sendMessage({ action: 'openPreview', key }) } catch {}
-    } catch (err) {
-      reportCaptureError(err, 'Crop')
+      reportCaptureError(err, action)
     } finally {
       removeSpinner()
     }
@@ -456,7 +250,7 @@ function activatePicker() {
           ['rect', { x: 5, y: 5, width: 8, height: 9, rx: 1, stroke: 'currentColor', 'stroke-width': 1.5 }],
           ['path', { d: 'M3 11V3a1 1 0 011-1h6', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }],
         ],
-        handler: () => handleCopy(target),
+        handler: () => runCaptureAction(target, 'Copy', copyBlobToClipboard),
       },
       {
         id: 'ns-btn-download',
@@ -466,18 +260,7 @@ function activatePicker() {
           ['path', { d: 'M5 7l3 3 3-3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }],
           ['path', { d: 'M3 13h10', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
         ],
-        handler: () => handleDownload(target),
-      },
-      {
-        id: 'ns-btn-crop',
-        label: 'CROP',
-        icon: [
-          ['path', { d: 'M4 1v3M1 4h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
-          ['path', { d: 'M12 1v3M9 4h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
-          ['path', { d: 'M4 15v-3M1 12h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
-          ['path', { d: 'M12 15v-3M9 12h3', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }],
-        ],
-        handler: () => handleCrop(target),
+        handler: () => runCaptureAction(target, 'Download', downloadBlobAsPng),
       },
     ]
 
@@ -725,4 +508,29 @@ function titleToFilename(title) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 60) || 'nodeshot'
+}
+
+// ── Capture destinations ────────────────────────────────────────────────────
+// Each takes the captured PNG blob and puts it somewhere. Anything they throw is
+// classified and shown by the caller, so a destination-specific explanation goes
+// on the error as `userMessage`.
+
+async function copyBlobToClipboard(blob) {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+  } catch (err) {
+    err.userMessage = 'Copy failed — Chrome could not write the image to your clipboard.'
+    throw err
+  }
+}
+
+function downloadBlobAsPng(blob) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${titleToFilename(document.title)}.png`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }

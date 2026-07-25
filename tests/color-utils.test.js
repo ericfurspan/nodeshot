@@ -1,11 +1,12 @@
 // tests/color-utils.test.js
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   SUPPORTED_COLOR_FN,
   hasUnsupportedColorFn,
   replaceUnsupportedColors,
   isOpaqueColor,
   firstOpaqueBackgroundColor,
+  normalizeDocumentColors,
 } from '../src/color-utils.js'
 
 // A deterministic stand-in for the canvas read-back resolver. Maps a few known
@@ -209,5 +210,147 @@ describe('replaceUnsupportedColors — unresolvable tokens', () => {
     const out = replaceUnsupportedColors(input, resolve)
     expect(out).toBe('linear-gradient(rgb(0, 170, 200), oklch(0.9 0.2 123))')
     expect(hasUnsupportedColorFn(out)).toBe(true)
+  })
+})
+
+// The policy half: which properties are colour-bearing, and what gets written when a
+// colour can't be resolved. This is what html2canvas's onclone hook runs, and what
+// breaks first when a Chrome release ships a new colour function.
+describe('normalizeDocumentColors — document walk', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  function div(styleText) {
+    const el = document.createElement('div')
+    el.setAttribute('style', styleText)
+    document.body.appendChild(el)
+    return el
+  }
+
+  it('rewrites an unsupported solid colour to the rgb the browser renders', () => {
+    const el = div('background-color: oklch(0.7 0.15 200)')
+    normalizeDocumentColors(document, resolve)
+    expect(el.style.getPropertyValue('background-color')).toBe('rgb(0, 170, 200)')
+    // Written with !important so page stylesheets can't win it back in the clone
+    expect(el.style.getPropertyPriority('background-color')).toBe('important')
+  })
+
+  it('covers every solid colour-bearing property html2canvas parses', () => {
+    const props = [
+      'color', 'background-color',
+      'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
+      'text-decoration-color', '-webkit-text-stroke-color',
+    ]
+    const el = div(props.map((p) => `${p}: oklch(0.7 0.15 200)`).join('; '))
+    normalizeDocumentColors(document, resolve)
+    for (const prop of props) {
+      expect(el.style.getPropertyValue(prop), prop).toBe('rgb(0, 170, 200)')
+    }
+  })
+
+  it('leaves values html2canvas already understands untouched', () => {
+    const el = div('color: rgb(1, 2, 3); background-color: hsl(10, 20%, 30%)')
+    const before = el.getAttribute('style')
+    normalizeDocumentColors(document, resolve)
+    expect(el.getAttribute('style')).toBe(before)
+  })
+
+  it('leaves an unresolvable solid colour untouched rather than guessing', () => {
+    // Nothing in the value could be resolved, so there is no partial rewrite to
+    // finish — the capture-level error path owns this case.
+    const el = div('background-color: oklch(0.9 0.2 123)') // not in FAKE
+    normalizeDocumentColors(document, resolve)
+    expect(el.style.getPropertyValue('background-color')).toBe('oklch(0.9 0.2 123)')
+  })
+
+  it('rewrites colours nested in compound values, keeping the container', () => {
+    const el = div('background-image: linear-gradient(oklch(0.7 0.15 200), red)')
+    normalizeDocumentColors(document, resolve)
+    expect(el.style.getPropertyValue('background-image'))
+      .toBe('linear-gradient(rgb(0, 170, 200), red)')
+  })
+
+  it('rewrites shadow colours', () => {
+    const el = div('box-shadow: 0 0 4px oklch(0.7 0.15 200)')
+    normalizeDocumentColors(document, resolve)
+    expect(el.style.getPropertyValue('box-shadow')).toBe('0 0 4px rgb(0, 170, 200)')
+  })
+
+  it('leaves SVG paint alone — html2canvas rasterises inline SVG via the browser', () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    rect.setAttribute('fill', 'oklch(0.7 0.15 200)')
+    rect.style.setProperty('stroke', 'oklch(0.7 0.15 200)')
+    svg.appendChild(rect)
+    document.body.appendChild(svg)
+
+    normalizeDocumentColors(document, resolve)
+
+    expect(rect.getAttribute('fill')).toBe('oklch(0.7 0.15 200)')
+    expect(rect.style.getPropertyValue('stroke')).toBe('oklch(0.7 0.15 200)')
+  })
+
+  it('does not throw on a document with no defaultView', () => {
+    expect(() => normalizeDocumentColors({ defaultView: null }, resolve)).not.toThrow()
+    expect(() => normalizeDocumentColors(undefined, resolve)).not.toThrow()
+  })
+})
+
+// The fallback branch needs a computed value that keeps an unresolvable colour
+// function after a partial rewrite. jsdom's getComputedStyle collapses nested colour
+// functions (color-mix(in srgb, oklch(…), white) comes back as color(srgb …)), so it
+// can't produce one — Chrome can. Stub the computed style, keep the elements real, so
+// what's asserted is still a real inline-style write.
+describe('normalizeDocumentColors — unresolvable-colour fallback', () => {
+  let el
+
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    el = document.createElement('div')
+    document.body.appendChild(el)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // Serves `value` for `prop` on our element only; every other property/element
+  // reads as empty so the walk skips it.
+  function stubComputed(prop, value) {
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((target) => ({
+      getPropertyValue: (p) => (target === el && p === prop ? value : ''),
+    }))
+  }
+
+  // One stop resolves, the container doesn't — the rewrite is partial, so an
+  // unsupported function survives into the value html2canvas would parse.
+  const PARTIAL = 'color-mix(in srgb, oklch(0.7 0.15 200), oklch(0.9 0.2 123))'
+
+  it('falls back to black for foreground colours', () => {
+    stubComputed('color', PARTIAL)
+    normalizeDocumentColors(document, resolve)
+    // '#000000' is written; jsdom serialises hex to rgb() on the way back out
+    expect(el.style.getPropertyValue('color')).toBe('rgb(0, 0, 0)')
+  })
+
+  it('falls back to transparent for background and border colours', () => {
+    stubComputed('background-color', PARTIAL)
+    normalizeDocumentColors(document, resolve)
+    expect(el.style.getPropertyValue('background-color')).toBe('transparent')
+
+    el.removeAttribute('style')
+    stubComputed('border-top-color', PARTIAL)
+    normalizeDocumentColors(document, resolve)
+    expect(el.style.getPropertyValue('border-top-color')).toBe('transparent')
+  })
+
+  it('never applies a placeholder to compound properties', () => {
+    // A gradient or url() must survive: the partial rewrite is kept as-is, and an
+    // unresolved token is left for the capture-level error path.
+    stubComputed('background-image', `linear-gradient(${PARTIAL}, red)`)
+    normalizeDocumentColors(document, resolve)
+    expect(el.style.getPropertyValue('background-image'))
+      .toBe('linear-gradient(color-mix(in srgb, rgb(0, 170, 200), oklch(0.9 0.2 123)), red)')
   })
 })

@@ -32,21 +32,5 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 
   if (message.action === 'pickerCancelled') {
     try { chrome.action.setBadgeText({ text: '', tabId }) } catch {}
-    return
-  }
-
-  if (message.action === 'openPreview') {
-    // Validate key before embedding in a URL. Only allow characters safe for a
-    // URL fragment (alphanumeric, hyphens, underscores). Actual keys are UUIDs,
-    // so any other content indicates a malformed or spoofed message.
-    if (typeof message.key !== 'string' || !/^[\w-]+$/.test(message.key)) return
-    try { chrome.action.setBadgeText({ text: '', tabId }) } catch {}
-    try {
-      chrome.tabs.create({
-        url: chrome.runtime.getURL(`preview.html#key=${message.key}`),
-      })
-    } catch {
-      // Tab creation failed (e.g., incognito without extension permission)
-    }
   }
 })

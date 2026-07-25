@@ -7,12 +7,10 @@ whole page, just the piece you actually want.
 
 Click the toolbar icon to activate the element picker. Hover over the page to see
 elements highlight as you move. When you find what you want, click — a small
-toolbar appears with three choices:
+toolbar appears with two choices:
 
 - **Copy** — paste it straight into any app that accepts images.
 - **PNG** — downloads immediately, named after the page title.
-- **Crop** — opens a preview tab with drag handles so you can trim the capture,
-  then save as PNG or PDF.
 
 Hold **Shift** to lock the selection in place before you click. Press **Esc** to
 cancel at any time.
@@ -84,10 +82,6 @@ no page content, no URLs, nothing leaves your browser. The only permissions it
 requests are the minimum needed to run:
 
 - `activeTab`, `scripting` — to inject the picker when you click the icon.
-- `storage` — to temporarily pass the capture to the preview tab. The entry is
-  deleted as soon as the preview has loaded successfully.
-- `unlimitedStorage` — to let large captures reach the preview without hitting
-  Chrome's normal local-storage quota.
 - `clipboardWrite` — to make Copy reliable after the capture finishes rendering.
 
 No host permissions. No access to your browsing history.

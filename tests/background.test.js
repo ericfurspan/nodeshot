@@ -11,14 +11,11 @@ function makeChrome({ sendMessageRejects = true } = {}) {
     runtime: {
       id: 'fakeextid',
       onMessage: { addListener: vi.fn((fn) => { globalThis._onMessageCb = fn }) },
-      getURL: vi.fn((p) => `chrome-extension://fakeextid/${p}`),
     },
-    storage: { local: { set: vi.fn().mockResolvedValue(undefined) } },
     tabs: {
       sendMessage: sendMessageRejects
         ? vi.fn().mockRejectedValue(new Error('no listener'))
         : vi.fn().mockResolvedValue(undefined),
-      create: vi.fn(),
     },
   }
 }
@@ -92,21 +89,6 @@ describe('background: messages', () => {
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 42 })
   })
 
-  it('clears badge and opens preview tab on openPreview', () => {
-    globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { id: 'fakeextid', tab: { id: 42 } })
-    expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 42 })
-    expect(chrome.tabs.create).toHaveBeenCalledWith({
-      url: 'chrome-extension://fakeextid/preview.html#key=abc123',
-    })
-  })
-
-  it('does not throw when tabs.create fails on openPreview', async () => {
-    chrome.tabs.create = vi.fn().mockImplementation(() => { throw new Error('incognito') })
-    expect(() =>
-      globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { id: 'fakeextid', tab: { id: 42 } }),
-    ).not.toThrow()
-  })
-
   it('does not throw when setBadgeText fails on pickerCancelled', () => {
     chrome.action.setBadgeText = vi.fn().mockImplementation(() => { throw new Error('tab closed') })
     expect(() =>
@@ -114,9 +96,11 @@ describe('background: messages', () => {
     ).not.toThrow()
   })
 
+  // Driven through pickerCancelled — the only handled message. The identical call
+  // with sender.id === 'fakeextid' clears the badge (see the first test in this
+  // group), so a no-op here is the sender check doing its job, not a dead path.
   it('ignores messages whose sender.id does not match the extension id', () => {
-    globalThis._onMessageCb({ action: 'openPreview', key: 'abc123' }, { id: 'other-extension', tab: { id: 42 } })
-    expect(chrome.tabs.create).not.toHaveBeenCalled()
+    globalThis._onMessageCb({ action: 'pickerCancelled' }, { id: 'other-extension', tab: { id: 42 } })
     expect(chrome.action.setBadgeText).not.toHaveBeenCalled()
   })
 
