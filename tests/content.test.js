@@ -8,13 +8,6 @@ vi.mock('html2canvas', () => ({
   }),
 }))
 
-// Real module, except normalizeDocumentColors is a spy — html2canvas is mocked here,
-// so onclone never runs on its own and nothing else would notice it being unwired.
-vi.mock('../src/color-utils.js', async (importOriginal) => ({
-  ...(await importOriginal()),
-  normalizeDocumentColors: vi.fn(),
-}))
-
 function freshChrome() {
   return {
     runtime: {
@@ -179,38 +172,12 @@ describe('content: full-render capture (click)', () => {
     document.getElementById('ns-btn-download').click()
     await new Promise((r) => setTimeout(r, 0))
 
-    expect(mockHtml2canvas).toHaveBeenCalledWith(target, expect.objectContaining({ useCORS: true }))
+    // The dialog action reaches capture with the picked element; what capture does
+    // with it (options, clone guards, blob conversion) is tests/capture.test.js
+    expect(mockHtml2canvas).toHaveBeenCalledWith(target, expect.any(Object))
     expect(anchorClick).toHaveBeenCalledOnce()
     expect(anchorClick.mock.instances[0].download).toMatch(/\.png$/)
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'pickerCancelled' })
-  })
-
-  it('hands the cloned document to the colour policy from onclone', async () => {
-    const { normalizeDocumentColors } = await import('../src/color-utils.js')
-    normalizeDocumentColors.mockClear()
-
-    const target = document.createElement('div')
-    document.body.appendChild(target)
-    const overlay = document.getElementById('nodeshot-overlay')
-    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
-    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
-      { top: 0, left: 0, width: 100, height: 100 },
-    )
-
-    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 50 }))
-    overlay.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }))
-    document.getElementById('ns-btn-copy').click()
-    await new Promise((r) => setTimeout(r, 0))
-
-    // html2canvas is mocked, so onclone is never invoked for real — pull it off the
-    // options and run it, otherwise nothing here would catch the call being dropped.
-    const [, options] = mockHtml2canvas.mock.calls[0]
-    expect(typeof options.onclone).toBe('function')
-
-    const clonedDoc = { defaultView: window, querySelectorAll: vi.fn(() => []) }
-    options.onclone(clonedDoc)
-
-    expect(normalizeDocumentColors).toHaveBeenCalledWith(clonedDoc)
   })
 
   it('writes the rendered PNG to the clipboard on Copy', async () => {

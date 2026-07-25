@@ -11,7 +11,7 @@ Follow shadcn/ui design conventions throughout. High contrast. Clean, large icon
 ```bash
 npm run dev      # Build in watch mode (node scripts/build.mjs --watch), then reload in chrome://extensions
 npm run build    # Production bundle → dist/ (node scripts/build.mjs), then classic-script assertion
-npm test         # Vitest (jsdom) — 72 tests across 3 files
+npm test         # Vitest (jsdom) — 92 tests across 4 files
 npm run icons    # Regenerate src/assets/icon{16,32,48,128}.png from scripts/generate-icons.js
 npm run package  # Production build → nodeshot.zip at repo root, ready for Chrome Web Store upload
 ```
@@ -41,9 +41,15 @@ Two isolated runtime contexts.
   - **Copy** → `navigator.clipboard.write` (PNG blob)
   - **PNG** → direct download via `URL.createObjectURL` + `<a download>`
 - **DOM-clobbering guard**: every injected node carries a `data-nodeshot` attribute; `cleanup()` and the hover hit-test check ownership via that attribute (never by ID alone)
-- **Capture** uses `html2canvas` with `imageTimeout: 3000` (fail fast on blocked CDN assets) and an `onclone` that (1) clamps negative SVG `<rect>` width/height and (2) calls `normalizeDocumentColors(doc)` (see Color Handling)
-- **Backdrop**: `resolveCaptureBackground()` walks ancestors for the first opaque background-color and passes it as html2canvas's `backgroundColor`, so translucent/no-background elements composite over the page's real backdrop instead of html2canvas's default white
-- **Graceful limits** (detected pre-flight, surfaced as a clear message, not a crash): cross-origin iframe targets and elements detached before capture
+- **One action pipeline**: `runCaptureAction(target, action, sink)` does cleanup → spinner → yield a frame → `captureElement` → `sink(blob)` → clear badge, with `reportCaptureError` in `catch` and spinner removal in `finally`. The two actions differ only in their sink (`copyBlobToClipboard`, `downloadBlobAsPng`) and the name used for failure wording.
+
+### Capture (`src/capture.js`)
+- `captureElement(target)` → **`Promise<Blob>`** (PNG). Owns the html2canvas config (`useCORS`, `imageTimeout: 3000` to fail fast on blocked CDN assets, scroll/viewport), the `onclone` hook, and the canvas → blob conversion (rejects `toBlob failed` on a null result)
+- **`onclone` runs both clone guards**: `clampNegativeSvgRects(doc)` (negative SVG `<rect>` geometry from sub-pixel layout/transforms aborts a capture) and `normalizeDocumentColors(doc)` (see Color Handling). Each lives in the module named for it, so a broken capture points at the right file
+- **Backdrop**: `resolveCaptureBackground()` (private) walks ancestors for the first opaque background-color and passes it as html2canvas's `backgroundColor`, so translucent/no-background elements composite over the page's real backdrop instead of html2canvas's default white
+- **Graceful limits** (detected pre-flight, before html2canvas is called): cross-origin iframe targets and elements detached before capture. Both throw an error tagged `expected: true` with a `userMessage`
+- **`classifyCaptureError(err, action)` → `{ expected, message }`** owns all capture wording, including the per-action fallbacks. The content script only decides `console.warn` vs `console.error` and shows the message
+- **Nothing here touches picker DOM or state** — takes an element, returns a blob
 
 ## Color Handling (`src/color-utils.js`)
 
@@ -53,7 +59,7 @@ html2canvas's parser only understands `rgb/rgba/hsl/hsla`. Modern Chrome's `getC
 - **Detection is general too** — keyed on the *supported* set (`SUPPORTED_COLOR_FN = rgb/rgba/hsl/hsla`), not an allowlist of unsupported names. Any function token outside it is resolved, so a brand-new CSS color function needs no code change.
 - `replaceUnsupportedColors` rewrites colors in place, including inside compound values (gradients, shadows) by recursing into containers it can't resolve directly.
 - **Policy lives here too**, not in the content script: `normalizeDocumentColors(doc, resolve = resolveColorToRgb)` owns the property lists and the per-element document walk. Solid props get a placeholder fallback when a token survives the rewrite unresolved (foreground → `#000000`, everything else → `transparent`); compound props are rewrite-only, since a placeholder would destroy a gradient or `url()`. SVG paint props are intentionally excluded — html2canvas rasterises inline SVG via the browser, which renders Color 4 natively.
-- `onclone` is therefore one call. It re-checks `doc.defaultView` for its own SVG `<rect>` clamp; `normalizeDocumentColors` checks it independently, because a public export validates its own preconditions rather than trusting the caller.
+- `onclone` is therefore one call per guard. `normalizeDocumentColors` and `clampNegativeSvgRects` each validate `doc.defaultView` themselves — they're public exports, and a public export checks its own preconditions rather than trusting a caller it can't see. That is encapsulation, not duplication; don't "clean it up".
 - `replaceUnsupportedColors` and `hasUnsupportedColorFn` stay exported for this module's own tests. Nothing outside the colour module should call them — go through `normalizeDocumentColors`.
 
 ## Build
@@ -84,7 +90,8 @@ This replaced an earlier per-entry isolated build (one Vite `build()` call per e
 Two things worth knowing before adding colour tests:
 
 - **jsdom's `getComputedStyle` collapses nested colour functions.** `color-mix(in srgb, oklch(…), white)` comes back as `color(srgb …)`, and `light-dark(oklch(…), white)` as the oklch branch — so jsdom cannot produce the partially-rewritten value that triggers the solid-prop placeholder fallback. Those tests stub `window.getComputedStyle` and keep the elements real, so the inline-style write being asserted is still real. Plain `oklch()` values survive jsdom intact, so every other case uses a real document.
-- **html2canvas is mocked wholesale, so `onclone` never runs under test.** `tests/content.test.js` partially mocks `color-utils.js` to spy on `normalizeDocumentColors`, then pulls `onclone` off the recorded html2canvas options and invokes it. Without that, the colour policy could be silently unwired from capture and every test would still pass. Both this and the fallback branch were mutation-checked. `color-utils.js` is unit-tested directly with an injectable resolver, so the scanner is covered without a real canvas. The Web Animations API (`element.animate`, used for the banner dot / spinner) is absent in jsdom — calls are guarded with `typeof el.animate === 'function'`.
+- **html2canvas is mocked wholesale, so `onclone` never runs under test.** `tests/capture.test.js` partially mocks `color-utils.js` to spy on `normalizeDocumentColors`, then pulls `onclone` off the recorded html2canvas options and invokes it, asserting both clone guards ran. Without that, either guard could be silently unwired and every other test would still pass. Mutation-checked, as was the colour fallback branch.
+- **jsdom computes `auto` for SVG geometry**, so the CSS half of `clampNegativeSvgRects` stubs `getComputedStyle` the same way; the attribute half runs against real elements. `color-utils.js` is unit-tested directly with an injectable resolver, so the scanner is covered without a real canvas. The Web Animations API (`element.animate`, used for the banner dot / spinner) is absent in jsdom — calls are guarded with `typeof el.animate === 'function'`.
 
 ## Key Decisions
 
@@ -95,6 +102,9 @@ Two things worth knowing before adding colour tests:
 - **Asserted classic-script output** — the invariant is checked by the build rather than documented as a manual step (see Build)
 - **General color resolution + detection** — canvas read-back, keyed on the supported set, so new CSS color functions don't reintroduce the crash
 - **Color policy behind the color interface** — the property lists and document walk moved out of the content script in 2.0.0, so one fact ("html2canvas can't parse CSS Color 4") is implemented in one module. The content script just calls it
+- **Capture lifted out of the picker closure** — `captureElement` and its backdrop resolver closed over none of the picker's state; nesting them meant the only way to reach them from a test was mousemove → click → button click through jsdom. Now directly testable
+- **The SVG `<rect>` clamp lives with capture, not with color** — both are html2canvas workarounds, but they're unrelated ones. Two honestly-named modules beat one grab-bag: when a capture breaks, the symptom points at the file
+- **Capture returns a `Blob`, not a canvas** — both actions want the same format, and rendering plus conversion are both async, so the seam is one `Promise<Blob>`
 - **UI built with DOM APIs, no `innerHTML`** — injected elements are constructed with `createElement`/`createElementNS` (preempts reviewer questions; all content was static anyway)
 
 ## Permissions
