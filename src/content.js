@@ -3,10 +3,10 @@ import { captureElement, classifyCaptureError } from './capture.js'
 
 // Attribute set on every element we inject so cleanup() can distinguish our nodes
 // from any page element that happens to share one of our IDs (DOM clobbering guard).
-const NS = 'data-nodeshot'
+const NS = 'data-nodesnip'
 
-if (!window.__nodeShotInjected) {
-  window.__nodeShotInjected = true
+if (!window.__nodeSnipInjected) {
+  window.__nodeSnipInjected = true
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'activate') activatePicker()
   })
@@ -21,7 +21,7 @@ function activatePicker() {
   // ── Overlay — captures pointer events ────────────────────────────────────
 
   const overlay = document.createElement('div')
-  overlay.id = 'nodeshot-overlay'
+  overlay.id = 'nodesnip-overlay'
   overlay.setAttribute(NS, '')
   Object.assign(overlay.style, {
     position: 'fixed',
@@ -34,7 +34,7 @@ function activatePicker() {
   // ── Highlight — hover indicator (#1a73e8 border) ───────────────────────────
 
   const highlight = document.createElement('div')
-  highlight.id = 'nodeshot-highlight'
+  highlight.id = 'nodesnip-highlight'
   highlight.setAttribute(NS, '')
   Object.assign(highlight.style, {
     position: 'fixed',
@@ -49,7 +49,7 @@ function activatePicker() {
   // ── Reticle — locked-state indicator (corner brackets + crosshair) ──
 
   const reticle = document.createElement('div')
-  reticle.id = 'nodeshot-reticle'
+  reticle.id = 'nodesnip-reticle'
   reticle.setAttribute(NS, '')
   Object.assign(reticle.style, {
     position: 'fixed',
@@ -92,7 +92,7 @@ function activatePicker() {
   // ── Banner ────────────────────────────────────────────────────────────────
 
   const banner = document.createElement('div')
-  banner.id = 'nodeshot-banner'
+  banner.id = 'nodesnip-banner'
   banner.setAttribute(NS, '')
   Object.assign(banner.style, {
     position: 'fixed',
@@ -181,7 +181,7 @@ function activatePicker() {
       dot,
       locked
         ? 'Node locked — click to capture · release '
-        : 'NodeShot — hover to select, click to capture · ',
+        : 'NodeSnip — hover to select, click to capture · ',
       kbd,
       locked ? ' to resume' : ' to cancel',
     )
@@ -192,9 +192,9 @@ function activatePicker() {
   function reportCaptureError(err, action) {
     const { expected, message } = classifyCaptureError(err, action)
     if (expected) {
-      console.warn('[NodeShot] Capture skipped (expected limitation):', err?.message ?? String(err))
+      console.warn('[NodeSnip] Capture skipped (expected limitation):', err?.message ?? String(err))
     } else {
-      console.error(`[NodeShot] ${action} failed:`, err)
+      console.error(`[NodeSnip] ${action} failed:`, err)
     }
     showError(message)
     try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
@@ -228,7 +228,7 @@ function activatePicker() {
     window.removeEventListener('blur', onBlur)
 
     const dialog = document.createElement('div')
-    dialog.id = 'nodeshot-dialog'
+    dialog.id = 'nodesnip-dialog'
     dialog.setAttribute(NS, '')
     Object.assign(dialog.style, {
       position: 'fixed',
@@ -359,7 +359,7 @@ function activatePicker() {
       try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
       return
     }
-    if (document.getElementById('nodeshot-dialog')) return
+    if (document.getElementById('nodesnip-dialog')) return
     if (e.key === 'Shift' && !shiftHeld && currentTarget) {
       shiftHeld = true
       frozenTarget = currentTarget
@@ -397,8 +397,8 @@ function activatePicker() {
   function cleanup() {
     // Only remove elements we own (have NS attribute). If a page element coincidentally
     // shares one of our IDs, getElementById would find it — we must not remove it.
-    for (const id of ['nodeshot-overlay', 'nodeshot-highlight', 'nodeshot-reticle',
-      'nodeshot-banner', 'nodeshot-dialog', 'nodeshot-spinner', 'nodeshot-error']) {
+    for (const id of ['nodesnip-overlay', 'nodesnip-highlight', 'nodesnip-reticle',
+      'nodesnip-banner', 'nodesnip-dialog', 'nodesnip-spinner', 'nodesnip-error']) {
       const el = document.getElementById(id)
       if (el?.hasAttribute(NS)) el.remove()
     }
@@ -432,7 +432,7 @@ function makeSvgIcon(nodes) {
 
 function showSpinner() {
   const el = document.createElement('div')
-  el.id = 'nodeshot-spinner'
+  el.id = 'nodesnip-spinner'
   el.setAttribute(NS, '')
   Object.assign(el.style, {
     position: 'fixed',
@@ -468,15 +468,15 @@ function showSpinner() {
 }
 
 function removeSpinner() {
-  const el = document.getElementById('nodeshot-spinner')
+  const el = document.getElementById('nodesnip-spinner')
   if (el?.hasAttribute(NS)) el.remove()
 }
 
 function showError(message) {
-  const existing = document.getElementById('nodeshot-error')
+  const existing = document.getElementById('nodesnip-error')
   if (existing?.hasAttribute(NS)) existing.remove()
   const el = document.createElement('div')
-  el.id = 'nodeshot-error'
+  el.id = 'nodesnip-error'
   el.setAttribute(NS, '')
   Object.assign(el.style, {
     position: 'fixed',
@@ -495,7 +495,7 @@ function showError(message) {
     textAlign: 'center',
     boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
   })
-  el.textContent = `NodeShot: ${message}`
+  el.textContent = `NodeSnip: ${message}`
   document.body.appendChild(el)
   setTimeout(() => el.remove(), 4000)
 }
@@ -507,7 +507,7 @@ function titleToFilename(title) {
     .replace(/[^a-z0-9-]/g, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 60) || 'nodeshot'
+    .slice(0, 60) || 'nodesnip'
 }
 
 // ── Capture destinations ────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-# NodeShot — Project Context
+# NodeSnip — Project Context
 
 Chrome extension (Manifest V3) that lets users activate an element picker on any page, capture a DOM element as an image, and either copy it to the clipboard or download it as a PNG.
 
@@ -13,7 +13,7 @@ npm run dev      # Build in watch mode (node scripts/build.mjs --watch), then re
 npm run build    # Production bundle → dist/ (node scripts/build.mjs), then classic-script assertion
 npm test         # Vitest (jsdom) — 92 tests across 4 files
 npm run icons    # Regenerate src/assets/icon{16,32,48,128}.png from scripts/generate-icons.js
-npm run package  # Production build → nodeshot.zip at repo root, ready for Chrome Web Store upload
+npm run package  # Production build → NodeSnip.zip at repo root, ready for Chrome Web Store upload
 ```
 
 Load the extension: `chrome://extensions` → Developer mode → Load unpacked → select `dist/`. Requires Chrome 111+ (manifest `minimum_chrome_version`).
@@ -36,11 +36,11 @@ Two isolated runtime contexts.
 
 ### Content Script (`src/content.js`)
 - Injected **on demand** (not declared in manifest) — avoids loading html2canvas into every tab
-- On first load: sets `window.__nodeShotInjected = true`, registers a permanent `onMessage` listener for `{action:'activate'}`, calls `activatePicker()`. The `!window.__nodeShotInjected` guard makes re-injection a no-op.
+- On first load: sets `window.__nodeSnipInjected = true`, registers a permanent `onMessage` listener for `{action:'activate'}`, calls `activatePicker()`. The `!window.__nodeSnipInjected` guard makes re-injection a no-op.
 - **Picker UI**: hover highlight (`#1a73e8` border); hold **Shift** to lock onto the current element (corner-bracket reticle); **Esc** cancels. Clicking opens a floating **action dialog** with two modes:
   - **Copy** → `navigator.clipboard.write` (PNG blob)
   - **PNG** → direct download via `URL.createObjectURL` + `<a download>`
-- **DOM-clobbering guard**: every injected node carries a `data-nodeshot` attribute; `cleanup()` and the hover hit-test check ownership via that attribute (never by ID alone)
+- **DOM-clobbering guard**: every injected node carries a `data-nodesnip` attribute; `cleanup()` and the hover hit-test check ownership via that attribute (never by ID alone)
 - **One action pipeline**: `runCaptureAction(target, action, sink)` does cleanup → spinner → yield a frame → `captureElement` → `sink(blob)` → clear badge, with `reportCaptureError` in `catch` and spinner removal in `finally`. The two actions differ only in their sink (`copyBlobToClipboard`, `downloadBlobAsPng`) and the name used for failure wording.
 
 ### Capture (`src/capture.js`)

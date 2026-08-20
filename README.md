@@ -1,6 +1,6 @@
-# NodeShot
+# NodeSnip
 
-NodeShot lets you capture any element on any web page as an image — not the
+NodeSnip lets you capture any element on any web page as an image — not the
 whole page, just the piece you actually want.
 
 ## Features
@@ -30,18 +30,18 @@ Then in Chrome:
 2. Turn on **Developer mode** (top right)
 3. Click **Load unpacked** and select the `dist/` folder
 
-Click the NodeShot toolbar icon on any page to start the picker. Click it again to
+Click the NodeSnip toolbar icon on any page to start the picker. Click it again to
 re-activate after a capture.
 
 ## Known behaviors / limitations
 
-NodeShot renders the page's own HTML and CSS into an image. A few things follow
+NodeSnip renders the page's own HTML and CSS into an image. A few things follow
 from how that works and from browser security rules — these are expected, not bugs:
 
-- **See-through elements are captured over the page's real background.** NodeShot
+- **See-through elements are captured over the page's real background.** NodeSnip
   captures exactly the element you pick. If that element has no background of its
   own, or a semi-transparent one — for example a navigation bar, or a card with a
-  translucent fill whose colour really comes from the page behind it — NodeShot
+  translucent fill whose colour really comes from the page behind it — NodeSnip
   composites it over the page's actual background colour (taken from the nearest
   parent that has a solid one). This means a translucent dark card on a dark page
   captures as dark, the way it looks on screen, rather than as a washed-out grey or
@@ -53,12 +53,12 @@ from how that works and from browser security rules — these are expected, not 
 
 - **Content inside cross-origin frames can't be captured.** Content inside
   cross-origin frames (embedded ads, videos, payment widgets) cannot be captured —
-  NodeShot detects this and shows a clear message instead of a broken image.
+  NodeSnip detects this and shows a clear message instead of a broken image.
 
 - **Some images may be missing if they load slowly or block cross-site use.**
   Images that are still loading, or that are served from another site without
   permission to be reused, can't always be drawn into the capture, so their area
-  may come out blank. NodeShot waits briefly for images and then proceeds so a
+  may come out blank. NodeSnip waits briefly for images and then proceeds so a
   capture never hangs.
 
 - **Modern colours are matched as closely as the screen shows them.** Pages built
@@ -77,7 +77,7 @@ from how that works and from browser security rules — these are expected, not 
 
 ## Permissions
 
-Everything happens locally — NodeShot never sends data to any server. No images,
+Everything happens locally — NodeSnip never sends data to any server. No images,
 no page content, no URLs, nothing leaves your browser. The only permissions it
 requests are the minimum needed to run:
 

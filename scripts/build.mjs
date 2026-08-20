@@ -3,7 +3,7 @@
 // Builds the extension entries (background, content) and copies the static assets
 // into dist/, then asserts that every emitted entry is a valid CLASSIC script.
 //
-// Why the assertion: every NodeShot entry is loaded as a classic script —
+// Why the assertion: every NodeSnip entry is loaded as a classic script —
 //   - content.js    — injected via chrome.scripting.executeScript (not an ES module)
 //   - background.js — MV3 service worker, not declared as a module
 // so an `import`/`export` statement in either is a fatal syntax error at load time.
