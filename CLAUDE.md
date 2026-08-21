@@ -121,4 +121,17 @@ No `host_permissions`. No static `content_scripts` block. (`tabs` was removed �
 
 ## Open release task for 2.0.0
 
-`screenshots/02-linear_1280.png` and `screenshots/03-linear.png` still show the old three-button action dialog with CROP. They are Chrome Web Store listing assets, not referenced by any code or doc, and regenerating them requires a manual capture run — so they were deliberately left stale. Before publishing 2.0.0, recapture both and update the Web Store listing description, which also still describes crop and PDF export.
+The Chrome Web Store listing is an **unpublished draft** — 2.0.0 will be its first
+publish, so there is no live listing to rename and no existing users to migrate.
+
+Screenshots need a **full recapture**, not a patch. The rebrand commit deleted
+`01-linear.png` and `01-notion_1280.png`; the surviving `02-linear_1280.png` and
+`03-linear.png` still show the old three-button action dialog with CROP. Only
+`01-stripe.png` is unaffected. These are listing assets, not referenced by any code
+or doc, and regenerating them requires a manual capture run against live sites —
+Chrome requires screenshots to depict actual functionality, so they cannot be
+mocked up.
+
+The draft listing description still describes crop and PDF export. `README.md` is
+the clean source for the rewrite. Promo tile and marquee graphics are still to be
+made; unlike screenshots, those are designed assets.
