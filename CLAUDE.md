@@ -130,6 +130,6 @@ They show the current Copy and PNG actions or the active picker banner, with no
 removed Crop UI. These are listing assets and are not referenced by code.
 
 The required 440x280 small promo tile is complete at `screenshots/promo-small.png`,
-with its editable source at `screenshots/promo-small.svg`. The draft listing
-description still describes crop and PDF export, and `README.md` is the clean source
-for the rewrite. The 1400x560 marquee image is optional.
+with its editable source at `screenshots/promo-small.svg`. The replacement listing
+copy and privacy-field answers are in `STORE_LISTING.md`. The 1400x560 marquee
+image is optional.

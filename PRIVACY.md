@@ -7,6 +7,8 @@ _Effective date: August 24, 2026_
 
 NodeSnip processes only the page element you explicitly select. It does not store that page content or send it to the NodeSnip developer, analytics services, advertising services, or any other service. Capture processing happens locally in your browser, subject to the normal page-asset requests described below.
 
+NodeSnip's use of information received through Chrome APIs complies with the Chrome Web Store User Data Policy, including the Limited Use requirements.
+
 ## What NodeSnip does with your data
 
 - Captured images are saved only to destinations you choose: your clipboard or a local file in your downloads folder.
