@@ -125,9 +125,9 @@ The Chrome Web Store listing is an **unpublished draft**. Version 2.0.1 will be 
 publish, so there is no live listing to rename and no existing users to migrate.
 
 The Chrome Web Store screenshots have been recaptured from the final build at
-exactly 1280x800: `01-stripe.png`, `02-linear_1280.png`, and `03-github.png`.
-They show the current Copy and PNG actions or the active picker banner, with no
-removed Crop UI. These are listing assets and are not referenced by code.
+exactly 1280x800: `01-stripe.png` and `02-linear_1280.png`. They show the current
+Copy and PNG actions, with no removed Crop UI or developer personal information.
+These are listing assets and are not referenced by code.
 
 The required 440x280 small promo tile is complete at `screenshots/promo-small.png`,
 with its editable source at `screenshots/promo-small.svg`. The replacement listing

@@ -75,6 +75,5 @@ Writes the generated PNG to the clipboard when the user chooses Copy after captu
 - Store icon: `src/assets/icon128.png`
 - Screenshot 1: `screenshots/01-stripe.png`
 - Screenshot 2: `screenshots/02-linear_1280.png`
-- Screenshot 3: `screenshots/03-github.png`
 - Small promo tile: `screenshots/promo-small.png`
 - Marquee promo tile: optional and omitted

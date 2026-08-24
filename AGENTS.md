@@ -121,4 +121,4 @@ No `host_permissions`. No static `content_scripts` block. (`tabs` was removed â€
 
 ## Open release task for 2.0.1
 
-The three Chrome Web Store screenshots have been recaptured from the final build at exactly 1280x800: `01-stripe.png`, `02-linear_1280.png`, and `03-github.png`. None contains the removed Crop action. The required 440x280 small promo tile is complete at `screenshots/promo-small.png`, with its editable source at `screenshots/promo-small.svg`. The replacement listing copy and privacy-field answers are in `STORE_LISTING.md`. The 1400x560 marquee image is optional.
+The two Chrome Web Store screenshots have been recaptured from the final build at exactly 1280x800: `01-stripe.png` and `02-linear_1280.png`. Neither contains the removed Crop action or the developer's personal information. The required 440x280 small promo tile is complete at `screenshots/promo-small.png`, with its editable source at `screenshots/promo-small.svg`. The replacement listing copy and privacy-field answers are in `STORE_LISTING.md`. The 1400x560 marquee image is optional.
