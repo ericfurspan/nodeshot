@@ -121,4 +121,4 @@ No `host_permissions`. No static `content_scripts` block. (`tabs` was removed â€
 
 ## Open release task for 2.0.1
 
-All three files in `screenshots/` still show the old three-button action dialog with CROP and need a full recapture from the final build. Capture each at exactly 1280x800 for direct Chrome Web Store upload. The draft listing description also still describes crop and PDF export. A 440x280 small promo tile is required; the 1400x560 marquee image is optional.
+The three Chrome Web Store screenshots have been recaptured from the final build at exactly 1280x800: `01-stripe.png`, `02-linear_1280.png`, and `03-github.png`. None contains the removed Crop action. The required 440x280 small promo tile is complete at `screenshots/promo-small.png`, with its editable source at `screenshots/promo-small.svg`. The draft listing description still describes crop and PDF export. The 1400x560 marquee image is optional.
