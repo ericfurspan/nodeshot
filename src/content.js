@@ -1,9 +1,34 @@
 // src/content.js
 import { captureElement, classifyCaptureError } from './capture.js'
 
-// Attribute set on every element we inject so cleanup() can distinguish our nodes
-// from any page element that happens to share one of our IDs (DOM clobbering guard).
+// Marker added to injected top-level nodes for DOM inspection. Ownership itself is
+// reference-based because a page can reuse any public attribute or ID.
 const NS = 'data-nodesnip'
+const ownedNodes = new Set()
+
+function ownNode(el) {
+  el.setAttribute(NS, '')
+  ownedNodes.add(el)
+  return el
+}
+
+function getOwnedNodeById(id) {
+  for (const el of ownedNodes) {
+    if (el.id === id && el.isConnected) return el
+  }
+  return null
+}
+
+function removeOwnedNode(el) {
+  if (!el) return
+  el.remove()
+  ownedNodes.delete(el)
+}
+
+function removeAllOwnedNodes() {
+  for (const el of ownedNodes) el.remove()
+  ownedNodes.clear()
+}
 
 if (!window.__nodeSnipInjected) {
   window.__nodeSnipInjected = true
@@ -20,9 +45,8 @@ function activatePicker() {
 
   // ── Overlay — captures pointer events ────────────────────────────────────
 
-  const overlay = document.createElement('div')
+  const overlay = ownNode(document.createElement('div'))
   overlay.id = 'nodesnip-overlay'
-  overlay.setAttribute(NS, '')
   Object.assign(overlay.style, {
     position: 'fixed',
     inset: '0',
@@ -33,9 +57,8 @@ function activatePicker() {
 
   // ── Highlight — hover indicator (#1a73e8 border) ───────────────────────────
 
-  const highlight = document.createElement('div')
+  const highlight = ownNode(document.createElement('div'))
   highlight.id = 'nodesnip-highlight'
-  highlight.setAttribute(NS, '')
   Object.assign(highlight.style, {
     position: 'fixed',
     zIndex: '2147483647',
@@ -48,9 +71,8 @@ function activatePicker() {
 
   // ── Reticle — locked-state indicator (corner brackets + crosshair) ──
 
-  const reticle = document.createElement('div')
+  const reticle = ownNode(document.createElement('div'))
   reticle.id = 'nodesnip-reticle'
-  reticle.setAttribute(NS, '')
   Object.assign(reticle.style, {
     position: 'fixed',
     zIndex: '2147483647',
@@ -91,9 +113,8 @@ function activatePicker() {
 
   // ── Banner ────────────────────────────────────────────────────────────────
 
-  const banner = document.createElement('div')
+  const banner = ownNode(document.createElement('div'))
   banner.id = 'nodesnip-banner'
-  banner.setAttribute(NS, '')
   Object.assign(banner.style, {
     position: 'fixed',
     top: '0', left: '0', right: '0',
@@ -227,9 +248,8 @@ function activatePicker() {
     window.removeEventListener('scroll', onScroll, { capture: true })
     window.removeEventListener('blur', onBlur)
 
-    const dialog = document.createElement('div')
+    const dialog = ownNode(document.createElement('div'))
     dialog.id = 'nodesnip-dialog'
-    dialog.setAttribute(NS, '')
     Object.assign(dialog.style, {
       position: 'fixed',
       zIndex: '2147483647',
@@ -335,8 +355,9 @@ function activatePicker() {
     if (shiftHeld) return
 
     const els = document.elementsFromPoint(e.clientX, e.clientY)
-    // Exclude our own injected elements; page elements never carry NS attribute.
-    const target = els.find(el => !el.hasAttribute(NS))
+    // Exclude only the exact nodes we injected. A page may coincidentally use the
+    // same attribute or IDs, so DOM markers alone are not proof of ownership.
+    const target = els.find(el => !ownedNodes.has(el))
     if (!target || target === document.body || target === document.documentElement) {
       highlight.style.display = 'none'
       currentTarget = null
@@ -359,7 +380,7 @@ function activatePicker() {
       try { chrome.runtime.sendMessage({ action: 'pickerCancelled' }) } catch {}
       return
     }
-    if (document.getElementById('nodesnip-dialog')) return
+    if (getOwnedNodeById('nodesnip-dialog')) return
     if (e.key === 'Shift' && !shiftHeld && currentTarget) {
       shiftHeld = true
       frozenTarget = currentTarget
@@ -395,13 +416,7 @@ function activatePicker() {
   window.addEventListener('blur', onBlur)
 
   function cleanup() {
-    // Only remove elements we own (have NS attribute). If a page element coincidentally
-    // shares one of our IDs, getElementById would find it — we must not remove it.
-    for (const id of ['nodesnip-overlay', 'nodesnip-highlight', 'nodesnip-reticle',
-      'nodesnip-banner', 'nodesnip-dialog', 'nodesnip-spinner', 'nodesnip-error']) {
-      const el = document.getElementById(id)
-      if (el?.hasAttribute(NS)) el.remove()
-    }
+    removeAllOwnedNodes()
     document.removeEventListener('keydown', onKeyDown)
     document.removeEventListener('keyup', onKeyUp)
     window.removeEventListener('scroll', onScroll, { capture: true })
@@ -431,9 +446,8 @@ function makeSvgIcon(nodes) {
 }
 
 function showSpinner() {
-  const el = document.createElement('div')
+  const el = ownNode(document.createElement('div'))
   el.id = 'nodesnip-spinner'
-  el.setAttribute(NS, '')
   Object.assign(el.style, {
     position: 'fixed',
     inset: '0',
@@ -468,16 +482,13 @@ function showSpinner() {
 }
 
 function removeSpinner() {
-  const el = document.getElementById('nodesnip-spinner')
-  if (el?.hasAttribute(NS)) el.remove()
+  removeOwnedNode(getOwnedNodeById('nodesnip-spinner'))
 }
 
 function showError(message) {
-  const existing = document.getElementById('nodesnip-error')
-  if (existing?.hasAttribute(NS)) existing.remove()
-  const el = document.createElement('div')
+  removeOwnedNode(getOwnedNodeById('nodesnip-error'))
+  const el = ownNode(document.createElement('div'))
   el.id = 'nodesnip-error'
-  el.setAttribute(NS, '')
   Object.assign(el.style, {
     position: 'fixed',
     bottom: '24px',
@@ -497,7 +508,7 @@ function showError(message) {
   })
   el.textContent = `NodeSnip: ${message}`
   document.body.appendChild(el)
-  setTimeout(() => el.remove(), 4000)
+  setTimeout(() => removeOwnedNode(el), 4000)
 }
 
 function titleToFilename(title) {

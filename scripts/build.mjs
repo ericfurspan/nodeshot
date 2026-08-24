@@ -18,7 +18,16 @@ import { build } from 'vite'
 import { Script } from 'node:vm'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import { copyFileSync, mkdirSync, cpSync, rmSync, existsSync, readFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  cpSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs'
 import { sharedOutput } from '../vite.config.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -29,6 +38,32 @@ const ENTRIES = {
   content: 'src/content.js',
 }
 
+function runtimePackagesFromLock() {
+  const lock = JSON.parse(readFileSync(resolve(root, 'package-lock.json'), 'utf8'))
+  return Object.entries(lock.packages)
+    .filter(([path, metadata]) => path.startsWith('node_modules/') && metadata.dev !== true)
+    .map(([path, metadata]) => ({
+      path,
+      name: path.slice('node_modules/'.length),
+      version: metadata.version,
+    }))
+}
+
+function writeThirdPartyNotices() {
+  const sections = runtimePackagesFromLock().map(({ path, name, version }) => {
+    const packageDir = resolve(root, path)
+    const licenseFile = readdirSync(packageDir)
+      .find(file => /^licen[cs]e(?:\..*)?$/i.test(file))
+    if (!licenseFile) throw new Error(`No license file found for ${name} ${version}.`)
+    const license = readFileSync(resolve(packageDir, licenseFile), 'utf8').trim()
+    return `${name} ${version}\n\n${license}`
+  })
+  writeFileSync(
+    resolve(root, 'dist/THIRD_PARTY_NOTICES.txt'),
+    `NodeSnip third-party notices\n\n${sections.join('\n\n---\n\n')}\n`,
+  )
+}
+
 // Copies the static (non-bundled) assets into dist. Runs via closeBundle so it also
 // re-copies on every rebuild in watch mode.
 function copyStaticAssets() {
@@ -36,6 +71,8 @@ function copyStaticAssets() {
     name: 'copy-static',
     closeBundle() {
       copyFileSync(resolve(root, 'manifest.json'), resolve(root, 'dist/manifest.json'))
+      copyFileSync(resolve(root, 'LICENSE'), resolve(root, 'dist/LICENSE'))
+      writeThirdPartyNotices()
       mkdirSync(resolve(root, 'dist/assets'), { recursive: true })
       cpSync(resolve(root, 'src/assets'), resolve(root, 'dist/assets'), { recursive: true })
     },
@@ -61,6 +98,22 @@ function assertClassicScripts() {
   console.log(`✓ classic-script check passed (${Object.keys(ENTRIES).join(', ')})`)
 }
 
+// Every production dependency is bundled into content.js, so its license notice
+// must ship in the upload package. The notice file is generated from the lockfile
+// and installed license files; this confirms every package and version made it in.
+function assertThirdPartyNotices() {
+  const notices = readFileSync(resolve(root, 'dist/THIRD_PARTY_NOTICES.txt'), 'utf8')
+  const runtimePackages = runtimePackagesFromLock()
+    .map(({ name, version }) => `${name} ${version}`)
+
+  for (const packageAndVersion of runtimePackages) {
+    if (!notices.includes(packageAndVersion)) {
+      throw new Error(`THIRD_PARTY_NOTICES.txt is missing ${packageAndVersion}.`)
+    }
+  }
+  console.log(`✓ third-party notice check passed (${runtimePackages.length} packages)`)
+}
+
 rmSync(resolve(root, 'dist'), { recursive: true, force: true })
 
 await build({
@@ -80,4 +133,7 @@ await build({
   },
 })
 
-if (!watch) assertClassicScripts()
+if (!watch) {
+  assertClassicScripts()
+  assertThirdPartyNotices()
+}

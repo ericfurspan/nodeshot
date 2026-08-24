@@ -40,7 +40,7 @@ Two isolated runtime contexts.
 - **Picker UI**: hover highlight (`#1a73e8` border); hold **Shift** to lock onto the current element (corner-bracket reticle); **Esc** cancels. Clicking opens a floating **action dialog** with two modes:
   - **Copy** → `navigator.clipboard.write` (PNG blob)
   - **PNG** → direct download via `URL.createObjectURL` + `<a download>`
-- **DOM-clobbering guard**: every injected node carries a `data-nodesnip` attribute; `cleanup()` and the hover hit-test check ownership via that attribute (never by ID alone)
+- **DOM-clobbering guard**: every injected top-level node is tracked by exact reference in a module-level `Set`; cleanup and hover hit-testing use membership in that set, so page-owned IDs or `data-nodesnip` attributes cannot impersonate extension ownership
 - **One action pipeline**: `runCaptureAction(target, action, sink)` does cleanup → spinner → yield a frame → `captureElement` → `sink(blob)` → clear badge, with `reportCaptureError` in `catch` and spinner removal in `finally`. The two actions differ only in their sink (`copyBlobToClipboard`, `downloadBlobAsPng`) and the name used for failure wording.
 
 ### Capture (`src/capture.js`)
@@ -117,8 +117,8 @@ No `host_permissions`. No static `content_scripts` block. (`tabs` was removed �
 
 ## Other Files
 
-`README.md`, `LICENSE` (MIT), and `PRIVACY.md` (no data leaves the device) exist at the repo root.
+`README.md`, `LICENSE` (MIT), and `PRIVACY.md` (local capture processing with original-host page-asset request disclosure) exist at the repo root. Production builds also include the project license and generated third-party notices.
 
-## Open release task for 2.0.0
+## Open release task for 2.0.1
 
-`screenshots/02-linear_1280.png` and `screenshots/03-linear.png` still show the old three-button action dialog with CROP. They are Chrome Web Store listing assets, not referenced by any code or doc, and regenerating them requires a manual capture run — so they were deliberately left stale. Before publishing 2.0.0, recapture both and update the Web Store listing description, which also still describes crop and PDF export.
+All three files in `screenshots/` still show the old three-button action dialog with CROP and need a full recapture from the final build. Capture each at exactly 1280x800 for direct Chrome Web Store upload. The draft listing description also still describes crop and PDF export. A 440x280 small promo tile is required; the 1400x560 marquee image is optional.

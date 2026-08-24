@@ -77,9 +77,11 @@ from how that works and from browser security rules — these are expected, not 
 
 ## Permissions
 
-Everything happens locally — NodeSnip never sends data to any server. No images,
-no page content, no URLs, nothing leaves your browser. The only permissions it
-requests are the minimum needed to run:
+Capture processing happens locally. NodeSnip does not upload captured images or
+page content, and it does not send data to the developer, analytics services, or
+advertising services. Rendering may cause the browser to re-request page images
+from their original hosts. The only permissions NodeSnip requests are the minimum
+needed to run:
 
 - `activeTab`, `scripting` — to inject the picker when you click the icon.
 - `clipboardWrite` — to make Copy reliable after the capture finishes rendering.

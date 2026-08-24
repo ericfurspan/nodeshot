@@ -40,7 +40,7 @@ Two isolated runtime contexts.
 - **Picker UI**: hover highlight (`#1a73e8` border); hold **Shift** to lock onto the current element (corner-bracket reticle); **Esc** cancels. Clicking opens a floating **action dialog** with two modes:
   - **Copy** → `navigator.clipboard.write` (PNG blob)
   - **PNG** → direct download via `URL.createObjectURL` + `<a download>`
-- **DOM-clobbering guard**: every injected node carries a `data-nodesnip` attribute; `cleanup()` and the hover hit-test check ownership via that attribute (never by ID alone)
+- **DOM-clobbering guard**: every injected top-level node is tracked by exact reference in a module-level `Set`; cleanup and hover hit-testing use membership in that set, so page-owned IDs or `data-nodesnip` attributes cannot impersonate extension ownership
 - **One action pipeline**: `runCaptureAction(target, action, sink)` does cleanup → spinner → yield a frame → `captureElement` → `sink(blob)` → clear badge, with `reportCaptureError` in `catch` and spinner removal in `finally`. The two actions differ only in their sink (`copyBlobToClipboard`, `downloadBlobAsPng`) and the name used for failure wording.
 
 ### Capture (`src/capture.js`)
@@ -117,21 +117,22 @@ No `host_permissions`. No static `content_scripts` block. (`tabs` was removed �
 
 ## Other Files
 
-`README.md`, `LICENSE` (MIT), and `PRIVACY.md` (no data leaves the device) exist at the repo root.
+`README.md`, `LICENSE` (MIT), and `PRIVACY.md` (local capture processing with original-host page-asset request disclosure) exist at the repo root. Production builds also include the project license and generated third-party notices.
 
-## Open release task for 2.0.0
+## Open release task for 2.0.1
 
-The Chrome Web Store listing is an **unpublished draft** — 2.0.0 will be its first
+The Chrome Web Store listing is an **unpublished draft**. Version 2.0.1 will be its first
 publish, so there is no live listing to rename and no existing users to migrate.
 
 Screenshots need a **full recapture**, not a patch. The rebrand commit deleted
-`01-linear.png` and `01-notion_1280.png`; the surviving `02-linear_1280.png` and
-`03-linear.png` still show the old three-button action dialog with CROP. Only
-`01-stripe.png` is unaffected. These are listing assets, not referenced by any code
-or doc, and regenerating them requires a manual capture run against live sites —
-Chrome requires screenshots to depict actual functionality, so they cannot be
-mocked up.
+`01-linear.png` and `01-notion_1280.png`; all three surviving screenshots still
+show the old three-button action dialog with CROP. These are listing assets, not
+referenced by code or user-facing documentation, and regenerating them requires a
+manual capture run against live sites. Chrome requires screenshots to depict actual
+functionality, so they cannot be mocked up. Capture each at exactly 1280x800 for
+direct upload.
 
 The draft listing description still describes crop and PDF export. `README.md` is
-the clean source for the rewrite. Promo tile and marquee graphics are still to be
-made; unlike screenshots, those are designed assets.
+the clean source for the rewrite. The required 440x280 small promo tile is still to
+be made; the 1400x560 marquee image is optional. Unlike screenshots, those are
+designed assets.
