@@ -166,5 +166,14 @@ them inside its own button padding. The badge carries a hairline lighter edge ab
 the badge and closes up the reticle, so it is skipped. On a Retina display Chrome
 uses the 32 for the toolbar slot, not the 16.
 
-**Changing the icons requires a version bump and a new store submission**, unlike
-the listing assets above.
+Changing the icons touches two separate places, and doing only one leaves them
+inconsistent:
+
+- the icons **inside the zip** drive the toolbar and the extensions page, so they
+  need a version bump and a new package upload
+- the **128 store icon on the listing** is a manually uploaded field with its own
+  delete/upload control. It is not read from the package. Upload
+  `src/assets/icon128.png` to it by hand.
+
+Because that file carries alpha, the store does not wrap it in its own
+12px-radius frame, so the generated rounded corners are the ones that ship.
