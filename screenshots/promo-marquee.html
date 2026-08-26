@@ -1,0 +1,40 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>NodeSnip marquee (typographic)</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  body { width: 1400px; height: 560px; }
+  .top { position: absolute; left: 100px; right: 100px; top: 110px; display: flex; align-items: center; justify-content: space-between; }
+  .id { display: flex; align-items: center; gap: 44px; }
+  .wordmark { font-size: 66px; }
+  .tagline { margin-top: 12px; font-size: 26px; font-weight: 400; letter-spacing: -0.01em; color: var(--muted); }
+  .lede { font-size: 42px; text-align: right; }
+  .rule { position: absolute; left: 100px; right: 100px; top: 364px; }
+  .labels { position: absolute; left: 100px; right: 100px; top: 414px; justify-content: space-between; font-size: 22px; }
+  .labels i { width: 7px; height: 7px; margin-right: 14px; }
+</style>
+
+<div class="top">
+  <div class="id">
+    <svg width="160" height="160" viewBox="0 0 160 160" aria-hidden="true">
+      <g fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="square">
+        <path d="M3 51V3h48"/><path d="M109 3h48v48"/><path d="M3 109v48h48"/><path d="M109 157h48v-48"/>
+      </g>
+      <circle cx="80" cy="80" r="16" fill="#3b82f6"/>
+    </svg>
+    <div>
+      <div class="wordmark">NodeSnip</div>
+      <div class="tagline">Pick any element</div>
+    </div>
+  </div>
+  <p class="lede">Capture one element,<br><span>not the whole page.</span></p>
+</div>
+
+<div class="rule"></div>
+
+<div class="labels">
+  <b><i></i>COPY TO CLIPBOARD</b>
+  <b><i></i>SAVE AS PNG</b>
+  <b><i></i>SHIFT TO LOCK</b>
+  <b><i></i>ESC TO CANCEL</b>
+</div>

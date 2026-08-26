@@ -11,8 +11,8 @@ Follow shadcn/ui design conventions throughout. High contrast. Clean, large icon
 ```bash
 npm run dev      # Build in watch mode (node scripts/build.mjs --watch), then reload in chrome://extensions
 npm run build    # Production bundle → dist/ (node scripts/build.mjs), then classic-script assertion
-npm test         # Vitest (jsdom) — 92 tests across 4 files
-npm run icons    # Regenerate src/assets/icon{16,32,48,128}.png from scripts/generate-icons.js
+npm test         # Vitest (jsdom) — 94 tests across 4 files
+npm run icons    # Regenerate src/assets/icon{16,32,48,128}.png (needs Chrome; override with CHROME=/path)
 npm run package  # Production build → NodeSnip.zip at repo root, ready for Chrome Web Store upload
 ```
 
@@ -119,6 +119,52 @@ No `host_permissions`. No static `content_scripts` block. (`tabs` was removed �
 
 `README.md`, `LICENSE` (MIT), and `PRIVACY.md` (local capture processing with original-host page-asset request disclosure) exist at the repo root. Production builds also include the project license and generated third-party notices.
 
-## Open release task for 2.0.1
+## Store listing assets
 
-The two Chrome Web Store screenshots have been recaptured from the final build at exactly 1280x800: `01-stripe.png` and `02-linear_1280.png`. Neither contains the removed Crop action or the developer's personal information. The required 440x280 small promo tile is complete at `screenshots/promo-small.png`, with its editable source at `screenshots/promo-small.svg`. The replacement listing copy and privacy-field answers are in `STORE_LISTING.md`. The 1400x560 marquee image is optional.
+Published and live at
+`https://chromewebstore.google.com/detail/nodesnip/oepkcpdnfhlicelglpfahkhjhdmlgkdm`.
+
+Everything in `screenshots/` is a listing asset. None of it is referenced by code
+and none of it ships inside the zip, so it is edited and re-uploaded to the
+dashboard without touching the extension version.
+
+| Asset | Source | Output |
+|---|---|---|
+| Marquee, 1400x560 (optional) | `promo-marquee.html` | `promo-marquee.png` |
+| Small promo tile, 440x280 (required) | `promo-small.html` | `promo-small.png` |
+| Screenshots, 1280x800 | captured by hand | `01-stripe.png`, `02-linear_1280.png` |
+
+`./screenshots/render.sh` rasterizes the two promo images from their HTML sources
+via headless Chrome, at exact pixel dimensions. `_shared.css` holds the colour and
+type tokens both share. The earlier `promo-small.svg` was replaced by
+`promo-small.html` and deleted; it is still in git history.
+
+Promo images are reviewed separately from the extension and can be rejected on
+their own. Google's guidance is that they should communicate the brand rather than
+just show a screenshot, which is why the marquee is typographic: an inset of a real
+third-party site would put another company's trademarks in featured-carousel art.
+
+The listing copy and privacy-field answers are in `STORE_LISTING.md`.
+
+## Icons
+
+`npm run icons` renders `src/assets/icon{16,32,48,128}.png` from a parameterised
+vector master inside `scripts/generate-icons.js`, rasterized by headless Chrome so
+the output has real anti-aliasing and a true alpha channel. The previous
+hand-rolled pixel loop (`pngjs`, `setPixel` at alpha 255) could give neither, and
+produced a full-bleed square that violated the store icon spec.
+
+The spec the generator now enforces, and asserts against its own output:
+
+- the 128 icon is 96x96 of artwork centred in 16px of transparent padding
+- no edge is drawn against the outer bounds
+- the mark holds up on light and dark backgrounds
+
+Toolbar sizes (16, 32) are deliberately full-bleed instead, since Chrome renders
+them inside its own button padding. The badge carries a hairline lighter edge above
+24px so its silhouette survives a dark toolbar; below that the edge is a sixth of
+the badge and closes up the reticle, so it is skipped. On a Retina display Chrome
+uses the 32 for the toolbar slot, not the 16.
+
+**Changing the icons requires a version bump and a new store submission**, unlike
+the listing assets above.
