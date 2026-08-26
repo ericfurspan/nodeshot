@@ -3,19 +3,21 @@
 
 # NodeSnip Privacy Policy
 
-_Effective date: August 20, 2026_
+_Effective date: August 24, 2026_
 
-NodeSnip does not collect, store, or transmit any user data. All processing happens locally in your browser.
+NodeSnip processes only the page element you explicitly select. It does not store that page content or send it to the NodeSnip developer, analytics services, advertising services, or any other service. Capture processing happens locally in your browser, subject to the normal page-asset requests described below.
+
+NodeSnip's use of information received through Chrome APIs complies with the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
 ## What NodeSnip does with your data
 
 - Captured images are saved only to destinations you choose: your clipboard or a local file in your downloads folder.
 - Captures are held in memory only for as long as it takes to write them to your clipboard or to disk. Nothing is written to extension storage.
-- NodeSnip never sends any data to any server, including captured images, page content, URLs, or filenames.
+- NodeSnip does not upload captured images, page content, URLs, or filenames.
 
 ## Browser image requests
 
-When rendering a capture, the browser may re-request images already loaded on the page in order to draw them into the canvas. This is standard browser rendering behavior and does not transmit any captured or user data externally.
+When rendering a capture, the browser may re-request images already loaded on the page from their original hosts. Those hosts receive a normal resource request, which can include the image URL and standard request metadata according to the page's and browser's policies. NodeSnip does not proxy these requests or send them to the NodeSnip developer.
 
 ## Permissions
 
@@ -27,7 +29,7 @@ NodeSnip requests only the permissions required for capture:
 
 ## Third-party libraries
 
-NodeSnip bundles one open-source library: [html2canvas](https://html2canvas.hertzen.com/) (DOM rendering). It runs entirely on your device and contacts no external server as part of NodeSnip's use of it.
+NodeSnip bundles [html2canvas](https://html2canvas.hertzen.com/) and its open-source dependencies for DOM rendering. They run locally and include no NodeSnip telemetry or remote service. As described above, rendering can cause the browser to re-request page assets from their original hosts.
 
 ## Contact
 

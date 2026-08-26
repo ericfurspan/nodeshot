@@ -103,6 +103,22 @@ describe('content: element detection', () => {
 
     expect(document.getElementById('nodesnip-highlight').style.display).toBe('none')
   })
+
+  it('can select a page element that uses the NodeSnip marker attribute', () => {
+    const target = document.createElement('div')
+    target.setAttribute('data-nodesnip', 'page-owned')
+    document.body.appendChild(target)
+
+    const overlay = document.getElementById('nodesnip-overlay')
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue([overlay, target])
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(
+      { top: 10, left: 20, width: 150, height: 60 },
+    )
+
+    overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 30 }))
+
+    expect(document.getElementById('nodesnip-highlight').style.display).toBe('block')
+  })
 })
 
 describe('content: Escape cancellation', () => {
@@ -124,6 +140,27 @@ describe('content: Escape cancellation', () => {
   it('sends pickerCancelled message on Escape', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'pickerCancelled' })
+  })
+
+  it('removes only NodeSnip nodes when the page owns the same IDs', () => {
+    const ids = [
+      'nodesnip-overlay',
+      'nodesnip-highlight',
+      'nodesnip-reticle',
+      'nodesnip-banner',
+    ]
+    const pageNodes = ids.map((id) => {
+      const el = document.createElement('div')
+      el.id = id
+      el.dataset.pageOwned = 'true'
+      document.body.prepend(el)
+      return el
+    })
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+
+    expect(document.querySelectorAll('[data-nodesnip]').length).toBe(0)
+    for (const el of pageNodes) expect(el.isConnected).toBe(true)
   })
 })
 
