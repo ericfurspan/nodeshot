@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "NodeSnip",
-  "version": "2.0.2",
-  "description": "Pick any element on the page and capture it as a PNG — copy it to the clipboard or download it.",
+  "version": "2.0.3",
+  "description": "Capture any webpage element as a PNG. Copy or download it instantly. Runs only when clicked, with local processing and no tracking.",
   "homepage_url": "https://github.com/ericfurspan/NodeSnip",
   "minimum_chrome_version": "111",
   "action": {

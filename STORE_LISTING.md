@@ -3,7 +3,7 @@
 ## Summary
 
 ```text
-Pick any element on a page and capture it as a PNG. Copy it to your clipboard or download it.
+Capture any webpage element as a PNG. Copy or download it instantly. Runs only when clicked, with local processing and no tracking.
 ```
 
 ## Detailed description
