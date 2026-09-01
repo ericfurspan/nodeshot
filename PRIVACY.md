@@ -5,14 +5,14 @@
 
 _Effective date: August 24, 2026_
 
-NodeSnip processes only the page element you explicitly select. It does not store that page content or send it to the NodeSnip developer, analytics services, advertising services, or any other service. Capture processing happens locally in your browser, subject to the normal page-asset requests described below.
+NodeSnip creates a temporary in-memory clone of the current page so its bundled renderer can examine the styles needed to capture the element you explicitly select. The generated image is limited to that selected element. NodeSnip does not store the cloned page or send page content to the NodeSnip developer, analytics services, advertising services, or any other service. Capture processing happens locally in your browser, subject to the normal page-asset requests described below.
 
 NodeSnip's use of information received through Chrome APIs complies with the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
 ## What NodeSnip does with your data
 
 - Captured images are saved only to destinations you choose: your clipboard or a local file in your downloads folder.
-- Captures are held in memory only for as long as it takes to write them to your clipboard or to disk. Nothing is written to extension storage.
+- NodeSnip does not write the temporary page clone or capture to extension storage.
 - NodeSnip does not upload captured images, page content, URLs, or filenames.
 
 ## Browser image requests

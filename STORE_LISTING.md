@@ -21,7 +21,7 @@ Features:
 - Handle modern CSS colors and translucent backgrounds
 
 Privacy:
-NodeSnip temporarily processes the page element you select in your browser to create the image. It does not upload or store page content, captures, URLs, or filenames. Rendering may cause Chrome to request page images from their original hosts. NodeSnip has no analytics, advertising, accounts, or tracking.
+NodeSnip temporarily creates an in-memory page clone so its bundled renderer can examine the styles needed to capture the element you select. The generated image is limited to that selected element. It does not upload or store page content, captures, URLs, or filenames. Rendering may cause Chrome to request page images from their original hosts. NodeSnip has no analytics, advertising, accounts, or tracking.
 ```
 
 ## Category
@@ -58,7 +58,7 @@ Writes the generated PNG to the clipboard when the user chooses Copy after captu
 
 ## Privacy practices
 
-- Website content: Yes. NodeSnip temporarily processes only the page element the user explicitly selects. Processing is local, and the content is not stored or transmitted to the developer.
+- Website content: Yes. NodeSnip temporarily processes an in-memory page clone as needed to render the element the user explicitly selects. The generated image is limited to that element. Processing is local, and page content is not stored or transmitted to the developer.
 - Remote code: No.
 - Selling user data: No.
 - Using user data for unrelated purposes, credit decisions, or personalized advertising: No.
@@ -75,5 +75,10 @@ Writes the generated PNG to the clipboard when the user chooses Copy after captu
 - Store icon: `src/assets/icon128.png`
 - Screenshot 1: `screenshots/01-stripe.png`
 - Screenshot 2: `screenshots/02-linear_1280.png`
+- Screenshot 3: `screenshots/03-tailwind-element-capture.png`
+- Screenshot 4: `screenshots/04-webdev-precision-capture.png`
+- Screenshot 5: `screenshots/05-webdev-shift-lock.png`
 - Small promo tile: `screenshots/promo-small.png`
 - Marquee promo tile: optional and omitted
+
+Files under `screenshots/` are Chrome Web Store listing assets and are excluded from `NodeSnip.zip`. Uploadable PNGs must not contain contributor-identifying or device-specific metadata.
